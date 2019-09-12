@@ -8,7 +8,7 @@ procedure.
 
 import numba as nb
 
-from .. import bitmanip as bmp
+from ...models import bitmanip as bmp
 # -----------------------------------------------------------------------------
 
 

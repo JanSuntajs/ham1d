@@ -126,10 +126,47 @@ def select_states(L, nup):
     return np.array(states, dtype=np.uint64), state_indices
 
 
+@nb.njit('Tuple((uint64[:], uint64[:]))(uint32)')
+def select_states_nni(L):
+    """
+    A routine for constructing a basis of
+    the non-interacting system.
+    INPUT:
+
+    L: uint32
+        The length of the 1-dimensional chain.
+
+    nup: uint32
+        The number of up-spins or particles.
+
+    OUTPUT:
+
+    states: np.array, dtype=uint64
+        An array of appropriate states selected
+        from the whole 2^L dimensional Hilbert
+        space of the problem
+    state_indices: np.array, dtype=uint64
+        A matrix containing information on how
+        the selected states from the entire Hilbert
+        space are ordered in the selected nup
+        subspace of the Hilbert space.
+    """
+
+    states = []
+    state_indices = np.zeros(L, dtype=np.uint64)
+
+    for i in range(L):
+        states.append(1 << i)
+
+    return (np.array(states, dtype=np.uint64),
+            state_indices)
+
+
 #  ----------------------------------------------------------
 #  BIT MANIPULATION OPTIONS
 #
 #  ----------------------------------------------------------
+
 
 @nb.njit("uint64(uint64, uint32)")
 def bitflip(state, bit):

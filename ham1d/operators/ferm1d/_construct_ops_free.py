@@ -12,7 +12,7 @@ import numpy as np
 import numba as nb
 
 from . import _fermops as fo
-from .. import bitmanip as bmp
+from ...models import bitmanip as bmp
 
 signature = (
     'Tuple((uint64[:], uint64[:], complex128[:]))(uint64[:], uint64[:], complex128[:], uint32[:,:], uint32[:])')
@@ -146,23 +146,10 @@ def _ham_ops(states, state_indices, couplings, sites, sel_opt):
 
                 if sel_opt[k] == 0:  # c+
 
-                    # Consider the fermionic sign
-                    ferm_sgn = (-1)**bmp.countBitsInterval(newstate,
-                                                           0, site)
-
                     factor_, newstate = fo.cp(newstate, site)
 
-                    factor_ *= ferm_sgn
-
                 elif sel_opt[k] == 1:  # c-
-
-                    # consider the fermionic sign
-                    ferm_sgn = (-1)**bmp.countBitsInterval(newstate,
-                                                           0, site)
-
                     factor_, newstate = fo.cm(newstate, site)
-
-                    factor_ *= ferm_sgn
 
                 elif sel_opt[k] == 2:  # identity
 
@@ -177,7 +164,7 @@ def _ham_ops(states, state_indices, couplings, sites, sel_opt):
             if factor:
 
                 rows.append(i)
-                cols.append(state_indices[newstate])
+                cols.append(np.log2(newstate))
                 vals.append(coupling * factor)
 
     rows = np.array(rows, dtype=np.uint64)
@@ -191,3 +178,8 @@ _trans_dict = {'+': 0,
                '-': 1,
                'I': 2,
                'n': 3}
+
+operators = {'+': fo.cp,
+             '-': fo.cm,
+             'I': fo.id2,
+             'n': fo.cn}

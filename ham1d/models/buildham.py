@@ -29,3 +29,4 @@ def buildham(L, nup, static_list, build_mod):
         ham += csr_matrix((vals, (rows, cols)), shape=(nstates, nstates))
 
     return ham
+

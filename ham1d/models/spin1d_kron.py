@@ -1,13 +1,16 @@
 from scipy import sparse as ssp
 
-from .construct_ops import operators_mixin
-from ..hamiltonian import _hamiltonian
+from ..operators.spin1d_kron._construct_ops import operators_mixin
+from ..operators.spin1d_kron import _spinops
+from ._base_ham_cls import _hamiltonian
 
 
 class hamiltonian(operators_mixin, _hamiltonian):
 
     def __init__(self, L, static_list, dynamic_list, t=0, Nu=None):
+        self._ops = _spinops.operators
         super(hamiltonian, self).__init__(L, static_list, dynamic_list, t, Nu)
+        self.build_mat()
 
     # build the hamiltonian matrix
     def build_mat(self):

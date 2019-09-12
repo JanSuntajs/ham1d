@@ -1,28 +1,28 @@
 """
 This module provides a numba optimized routine
 for creation of the hamiltonian terms in the
-spin 1/2 case.
+spin 1D fermionic case.
 
-An analogous interface is defined for the fermionic
-case in the ferm1d subpackage.
+An analogous interface is defined for the spin 1/2
+case in the spin1d subpackage.
 
 """
-
 
 import numpy as np
 import numba as nb
 
-from . import _spinops as so
+from . import _fermops as fo
+from ...models import bitmanip as bmp
 
-_signature = (
+signature = (
     'Tuple((uint64[:], uint64[:], complex128[:]))(uint64[:], uint64[:], complex128[:], uint32[:,:], uint32[:])')
 
 
-@nb.njit(_signature, fastmath=True, nogil=True, cache=True)
+@nb.njit(signature, fastmath=True, nogil=True, cache=True)
 def _ham_ops(states, state_indices, couplings, sites, sel_opt):
     """
     Numba-optimized code for hamiltonian construction in the
-    spin 1/2 case for arbitrary couplings between (arbitrarily
+    1D fermionic case for arbitrary couplings between (arbitrarily
     chosen) sites. This routine is internal and is intended
     for usage in the operators.buildham.buildham(...) function.
     The output of this function are the matrix elements
@@ -58,12 +58,11 @@ def _ham_ops(states, state_indices, couplings, sites, sel_opt):
         a particular hamiltonian term. Allowed entries
         in the sel_opt array are:
 
-            0: S+ operator
-            1: S- operator
+            0: c^+ operator
+            1: c^- operator
             2: Identity operator
-            3: Sx operator
-            4: Sy operator
-            5: Sz operator
+            3: n operator (c+c-)
+
 
     OUTPUT:
 
@@ -78,17 +77,16 @@ def _ham_ops(states, state_indices, couplings, sites, sel_opt):
     EXAMPLE:
 
         Here we show how to construct individual
-        hamiltonian terms for an anisotropic XXZ
-        chain with added potential disorder:
+        hamiltonian terms the 1D Anderson
+        hamiltonian:
 
-        H_xxz = J * (\sum_i (S_i^+S_{i+1}^- +
-                 + S_i^- S_{i+1}^+) +
-                 + delta * S_i^z S_{i+1}^z) +
-                 + \sum_i h_i S_i^z
+        H_a = t * (\sum_i (c_i^+c_{i+1}^- +
+                 + c_{i+1}^+ c_{i+1}^-) +
+                 + \sum_i h_i n_i
 
-        We set L=4 with PBC and with the
-        total spin projection Sz=0 (nup=2) and
-        J = 1, delta = 0.55.
+        We set L=4 with PBC in the half-filled
+        case, nup=2. We set t=-1 and the
+        disorder strength parameter W=1.
 
         First, the selection of states is
         most conveniently done as follows:
@@ -97,31 +95,26 @@ def _ham_ops(states, state_indices, couplings, sites, sel_opt):
 
         We define the coupling constants:
 
-        J = 1.
-        delta = 0.55
-        W = 1. # the disorder strength parameter
+        t = -1
+        W = 1.
 
-        Let us simulate the xy part of the anisotropic
-        XXZ hamiltonian:
+        Let us simulate hopping to the right first:
 
-            couplings_xy = np.array([J * 0.5 for i in range(L)])
-            sites_xy = np.array([[i, (i + 1) % L] for i in range(L) ]) #PBC
-            sel_opt_xy = [0, 1]
+            couplings_r = np.array([t for i in range(L)])
+            sites_r = np.array([[i, (i + 1) % L] for i in range(L) ]) #PBC
+            sel_opt_r = [0, 1]
 
-        Note: to simulate the hermitian conjugate part, we can simply set
-        sel_opt_xy = [1, 0].
+        Hopping to the left:
 
-        Things are very similar for the interaction along the z-axis:
-
-            couplings_zz = np.array([J * delta for i in range(L)])
-            sites_zz = np.array([[i, (i + 1) % L] for i in range(L) ]) #PBC
-            sel_opt_zz = [5, 5]
+            couplings_l = np.array([t for i in range(L)])
+            sites_l = np.array([[i % L, (i - 1) % L] for i in range(L) ]) #PBC
+            sel_opt_l = [0, 1]
 
         Let us now define the random fields in the random part:
 
-            couplings_z = np.random.uniform(-W, W, size=L)
-            sites_z = np.array([i for i in range(L)])
-            sel_opt_z = [5]
+            couplings_rnd = np.random.uniform(-W, W, size=L)
+            sites_rnd = np.array([i for i in range(L)])
+            sel_opt_rnd = [3]
 
         To construct any of the above terms, simply call:
 
@@ -133,6 +126,8 @@ def _ham_ops(states, state_indices, couplings, sites, sel_opt):
 
     """
 
+    sel_opt = sel_opt[::-1]
+
     rows = []
     cols = []
     vals = []
@@ -142,36 +137,40 @@ def _ham_ops(states, state_indices, couplings, sites, sel_opt):
         state = states[i]
         for j, coupling in enumerate(couplings):
 
-            sitelist = sites[j]
+            sitelist = sites[j][::-1]
 
             newstate = state
             factor = 1.
 
             for k, site in enumerate(sitelist):
 
-                if sel_opt[k] == 0:
+                if sel_opt[k] == 0:  # c+
 
-                    factor_, newstate = so.sp(newstate, site)
+                    # Consider the fermionic sign
+                    ferm_sgn = (-1)**bmp.countBitsInterval(newstate,
+                                                           0, site)
 
-                elif sel_opt[k] == 1:
+                    factor_, newstate = fo.cp(newstate, site)
 
-                    factor_, newstate = so.sm(newstate, site)
+                    factor_ *= ferm_sgn
 
-                elif sel_opt[k] == 2:
+                elif sel_opt[k] == 1:  # c-
 
-                    factor_, newstate = so.id2(newstate, site)
+                    # consider the fermionic sign
+                    ferm_sgn = (-1)**bmp.countBitsInterval(newstate,
+                                                           0, site)
 
-                elif sel_opt[k] == 3:
+                    factor_, newstate = fo.cm(newstate, site)
 
-                    factor_, newstate = so.sx(newstate, site)
+                    factor_ *= ferm_sgn
 
-                elif sel_opt[k] == 4:
+                elif sel_opt[k] == 2:  # identity
 
-                    factor_, newstate = so.sy(newstate, site)
+                    factor_, newstate = fo.id2(newstate, site)
 
-                elif sel_opt[k] == 5:
+                elif sel_opt[k] == 3:  # number operator
 
-                    factor_, newstate = so.sz(newstate, site)
+                    factor_, newstate = fo.cn(newstate, site)
 
                 factor *= factor_
 
@@ -184,18 +183,16 @@ def _ham_ops(states, state_indices, couplings, sites, sel_opt):
     rows = np.array(rows, dtype=np.uint64)
     cols = np.array(cols, dtype=np.uint64)
     vals = np.array(vals, dtype=np.complex128)
+
     return rows, cols, vals
 
 
-# since numba does not support passing character
-# strings as arguments to functions compiled in
-# nopython mode, a _trans_dict is provided
-# for conversion between string descriptions of
-# operators and integers passed into _ham_ops
-# functions.
 _trans_dict = {'+': 0,
                '-': 1,
                'I': 2,
-               'x': 3,
-               'y': 4,
-               'z': 5}
+               'n': 3}
+
+operators = {'+': fo.cp,
+             '-': fo.cm,
+             'I': fo.id2,
+             'n': fo.cn}

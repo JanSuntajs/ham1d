@@ -9,7 +9,7 @@ procedure.
 import numba as nb
 import numpy as np
 
-from .. import bitmanip as bmp
+from ...models import bitmanip as bmp
 # -----------------------------------------------------------------------------
 
 
