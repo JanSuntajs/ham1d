@@ -408,8 +408,6 @@ class _hamiltonian_numba(_hamiltonian):
 
     def build_mat(self):
 
-        ham_static = {}
-
         if self._static_changed:
 
             # if Nu is None, all states are considered, not
@@ -437,12 +435,14 @@ class _hamiltonian_numba(_hamiltonian):
                 self.states, self.state_indices = bmp.select_states_nni(
                     np.uint32(self.L))
 
-
-
             self.nstates = len(self.states)
 
             # mat = csr_matrix((self.nstates, self.nstates),
             #                  dtype=np.complex128)
+            ham_static = {static_key[0]: csr_matrix((self.nstates,
+                                                     self.nstates),
+                                                    dtype=np.complex128)
+                          for static_key in self.static_list}
 
             for term in self.static_list:
 
@@ -462,9 +462,7 @@ class _hamiltonian_numba(_hamiltonian):
                                  shape=(self.nstates, self.nstates),
                                  dtype=np.complex128)
 
-                if static_key in ham_static.keys():
-                    static_key = static_key + '_'
-                ham_static[static_key] = mat
+                ham_static[static_key] += mat
 
             self._static_changed = False
             self._mat_static = ham_static
