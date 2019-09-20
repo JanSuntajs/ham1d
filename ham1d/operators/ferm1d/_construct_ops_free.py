@@ -11,8 +11,7 @@ case in the spin1d subpackage.
 import numpy as np
 import numba as nb
 
-from . import _fermops as fo
-from ...models import bitmanip as bmp
+from . import _fermops_free as fo
 
 signature = (
     'Tuple((uint64[:], uint64[:], complex128[:]))(uint64[:], uint64[:], complex128[:], uint32[:,:], uint32[:])')
@@ -132,40 +131,51 @@ def _ham_ops(states, state_indices, couplings, sites, sel_opt):
     cols = []
     vals = []
 
+    # the dimension of the underlying Hilbert space
+    dim = len(states)
     # for i, state in enumerate(states):
-    for i in range(len(states)):
-        state = states[i]
-        for j, coupling in enumerate(couplings):
 
-            sitelist = sites[j][::-1]
+    for i in range(len(couplings)):
+        # construct a template for the state on
+        # which the Hamiltonian acts
+        state = np.zeros(dim, dtype=np.uint64)
+        coupling = couplings[i]
+        sitelist = sites[i][::-1]
 
-            newstate = state
-            factor = 1.
+        ind_in = sitelist[0]
+        ind_out = ind_in
+        factor = 1.
+        state[ind_in] = np.uint64(1)
+        newstate = np.copy(state)
 
-            for k, site in enumerate(sitelist):
+        for k, site in enumerate(sitelist):
 
-                if sel_opt[k] == 0:  # c+
+            if sel_opt[k] == 0:  # c+
 
-                    factor_, newstate = fo.cp(newstate, site)
+                factor_, newstate, ind_out = fo.cp(
+                    newstate, site, ind_out)
 
-                elif sel_opt[k] == 1:  # c-
-                    factor_, newstate = fo.cm(newstate, site)
+            elif sel_opt[k] == 1:  # c-
+                factor_, newstate, ind_out = fo.cm(
+                    newstate, site, ind_out)
 
-                elif sel_opt[k] == 2:  # identity
+            elif sel_opt[k] == 2:  # identity
 
-                    factor_, newstate = fo.id2(newstate, site)
+                factor_, newstate, ind_out = fo.id2(newstate, site,
+                                                    ind_out)
 
-                elif sel_opt[k] == 3:  # number operator
+            elif sel_opt[k] == 3:  # number operator
 
-                    factor_, newstate = fo.cn(newstate, site)
+                factor_, newstate, ind_out = fo.cn(
+                    newstate, site, ind_out)
 
-                factor *= factor_
+            factor *= factor_
 
-            if factor:
+        if factor:
 
-                rows.append(i)
-                cols.append(np.log2(newstate))
-                vals.append(coupling * factor)
+            rows.append(ind_in)
+            cols.append(ind_out)
+            vals.append(coupling * factor)
 
     rows = np.array(rows, dtype=np.uint64)
     cols = np.array(cols, dtype=np.uint64)

@@ -153,13 +153,15 @@ def select_states_nni(L):
     """
 
     states = []
-    state_indices = np.zeros(L, dtype=np.uint64)
+    state_indices = []
+    # state_indices = np.arange(0, L, 1, dtype=np.uint64)
 
     for i in range(L):
-        states.append(1 << i)
+        states.append(i)
+        state_indices.append(i)
 
     return (np.array(states, dtype=np.uint64),
-            state_indices)
+            np.array(state_indices, dtype=np.uint64))
 
 
 #  ----------------------------------------------------------

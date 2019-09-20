@@ -407,12 +407,22 @@ class _hamiltonian_numba(_hamiltonian):
         self.build_mat()
 
     def build_mat(self):
+        """
+        A routine for building the whole hamiltonian
+        matrix from individual hamiltonian terms.
 
+
+        """
+
+        # check if the flag indicating the change of the
+        # self.static_list has changed and hence the
+        # hamiltonian matrix has to be rebuilt
         if self._static_changed:
 
-            # if Nu is None, all states are considered, not
-            # just a particular block.
+            # case for noninteracting systems is different
             if not self._free:
+                # if Nu is None, all states are considered, not
+                # just a particular block.
                 if self.Nu is not None:
 
                     states = []
@@ -432,13 +442,13 @@ class _hamiltonian_numba(_hamiltonian):
 
             else:
 
+                # in the noninteracting case, select states using
+                # a different routine
                 self.states, self.state_indices = bmp.select_states_nni(
                     np.uint32(self.L))
 
             self.nstates = len(self.states)
 
-            # mat = csr_matrix((self.nstates, self.nstates),
-            #                  dtype=np.complex128)
             ham_static = {static_key[0]: csr_matrix((self.nstates,
                                                      self.nstates),
                                                     dtype=np.complex128)
@@ -462,6 +472,15 @@ class _hamiltonian_numba(_hamiltonian):
                                  shape=(self.nstates, self.nstates),
                                  dtype=np.complex128)
 
+                # NOTE: this step assigns all the terms corresponding
+                # to the same operator descriptor string to the same
+                # key in the ham_static dictionary. In case one for
+                # instance has different terms corresponding to the
+                # '+-' operator descriptor, those would all be writen
+                # to the same csr matrix. Multiple occurences of the
+                # same operator descriptor can happen, for example when
+                # one wishes to describe nearest and next-nearest
+                # neighbour couplings in the same hamiltonian.
                 ham_static[static_key] += mat
 
             self._static_changed = False
