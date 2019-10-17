@@ -306,22 +306,36 @@ class _hamiltonian(_decorators_mixin):
 
         return self._mat
 
-    def eigvals(self, *args, **kwargs):
+    def eigvals(self, complex=True, *args, **kwargs):
         """
         A routine for calculating only the
         eigenvalues of the Hamiltonian array.
+
+        parameters:
+        complex: boolean, optional
+
+            Whether the hamiltonian to be diagonalised
+            should be trated as complex or real-valued
+            which can spare some memory.
         """
+        if complex:
+            return sla.eigvalsh(self.mat.todense(), *args, **kwargs)
+        else:
+            return sla.eigvalsh(np.real(self.mat).todense(),
+                                *args, **kwargs)
 
-        return sla.eigvalsh(self.mat.todense(), *args, **kwargs)
-
-    def eigsystem(self, *args, **kwargs):
+    def eigsystem(self, complex=True, *args, **kwargs):
         """
         A routine for calculating both the
         eigenvalues and the eigenvectors
         of the Hamiltonian array.
         """
+        if complex:
 
-        return sla.eigh(self.mat.todense(), *args, **kwargs)
+            return sla.eigh(self.mat.todense(), *args, **kwargs)
+        else:
+
+            return sla.eigh(np.real(self.mat).todense(), *args, **kwargs)
 
     # @property
     # def dynamic(self):
