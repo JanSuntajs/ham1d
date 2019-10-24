@@ -33,6 +33,7 @@ class _hamiltonian_numba(_hamiltonian)
 
 import numpy as np
 import functools
+import numba as nb
 from scipy import linalg as sla
 from scipy.sparse import csr_matrix
 
@@ -407,9 +408,25 @@ class _hamiltonian_numba(_hamiltonian):
 
             build_mod._ham_ops:
 
+    parallel: boolean, optional
+        Whether the Hamiltonian matrix is to be generated in a parallel
+        distributed manner (if parallel==True) thus allowing for the
+        usage of the specialized libraries for parallel computing, such
+        as PETSc. Defaults to False.
+
+    mpirank: int, optional.
+        Rank of the mpi process if the Hamiltonian matrix is constructed
+        in a distributed parallel manner using mpi. Defaults to 0 for
+        sequential jobs.
+
+    mpisize: int, optional.
+        Size of the mpi block in case of a distributed parallel Hamiltonian
+        matrix creation. Defaults to 0 for sequential jobs.
+
     """
 
-    def __init__(self, L, static_list, dynamic_list, build_mod, t=0, Nu=None):
+    def __init__(self, L, static_list, dynamic_list, build_mod, t=0, Nu=None,
+                 parallel=False, mpirank=0, mpisize=0):
 
         self._ham_ops = build_mod._ham_ops
         self._trans_dict = build_mod._trans_dict
@@ -418,7 +435,52 @@ class _hamiltonian_numba(_hamiltonian):
         super(_hamiltonian_numba, self).__init__(
             L, static_list, dynamic_list, t, Nu)
 
+        # mpi params, if needed
+        self._mpisize = mpisize
+        self._mpirank = mpirank
+        self._parallel = parallel
+
+        self._make_basis()
+        self._mpi_prepare_params()
+
         self.build_mat()
+
+    def _make_basis(self):
+        """
+        A routine for preparing the basis states with which
+        we work.
+
+        """
+
+        # case for noninteracting systems is different
+        if not self._free:
+            # if Nu is None, all states are considered, not
+            # just a particular block.
+            if self.Nu is not None:
+
+                states = []
+                state_indices = []
+                for nu in self.Nu:
+                    states_, state_indices_ = bmp.select_states(
+                        np.uint32(self.L), np.uint32(nu))
+                    states = np.append(states, states_)
+                    state_indices = np.append(
+                        state_indices, state_indices_)
+
+            else:
+                states = state_indices = [i for i in range(1 << self.L)]
+
+            self.states = np.array(states, dtype=np.uint64)
+            self.state_indices = np.array(state_indices, dtype=np.uint64)
+
+        else:
+
+            # in the noninteracting case, select states using
+            # a different routine
+            self.states, self.state_indices = bmp.select_states_nni(
+                np.uint32(self.L))
+
+        self.nstates = len(self.states)
 
     def build_mat(self):
         """
@@ -431,39 +493,11 @@ class _hamiltonian_numba(_hamiltonian):
         # check if the flag indicating the change of the
         # self.static_list has changed and hence the
         # hamiltonian matrix has to be rebuilt
+
         if self._static_changed:
 
-            # case for noninteracting systems is different
-            if not self._free:
-                # if Nu is None, all states are considered, not
-                # just a particular block.
-                if self.Nu is not None:
-
-                    states = []
-                    state_indices = []
-                    for nu in self.Nu:
-                        states_, state_indices_ = bmp.select_states(
-                            np.uint32(self.L), np.uint32(nu))
-                        states = np.append(states, states_)
-                        state_indices = np.append(
-                            state_indices, state_indices_)
-
-                else:
-                    states = state_indices = [i for i in range(1 << self.L)]
-
-                self.states = np.array(states, dtype=np.uint64)
-                self.state_indices = np.array(state_indices, dtype=np.uint64)
-
-            else:
-
-                # in the noninteracting case, select states using
-                # a different routine
-                self.states, self.state_indices = bmp.select_states_nni(
-                    np.uint32(self.L))
-
-            self.nstates = len(self.states)
-
-            ham_static = {static_key[0]: csr_matrix((self.nstates,
+            ham_static = {static_key[0]: csr_matrix((self.end_row -
+                                                     self.start_row,
                                                      self.nstates),
                                                     dtype=np.complex128)
                           for static_key in self.static_list}
@@ -480,10 +514,12 @@ class _hamiltonian_numba(_hamiltonian):
 
                 sites = np.uint32(coupsites[:, 1:])
                 rows, cols, vals = self._ham_ops(
-                    self.states, self.state_indices, coups, sites, ops)
+                    self.states[self.start_row:self.end_row],
+                    self.state_indices, coups, sites, ops)
 
                 mat = csr_matrix((vals, (rows, cols)),
-                                 shape=(self.nstates, self.nstates),
+                                 shape=(self.end_row -
+                                        self.start_row, self.nstates),
                                  dtype=np.complex128)
 
                 # NOTE: this step assigns all the terms corresponding
@@ -500,3 +536,101 @@ class _hamiltonian_numba(_hamiltonian):
             self._static_changed = False
             self._mat_static = ham_static
             self._matsum()
+
+            # if self._parallel:
+
+            self._mpi_calculate_nnz()
+
+    # mpi preparation routines
+
+    def _mpi_prepare_params(self):
+        """
+        A routine for preparing mpi parameters for creation of a parallel
+        distributed array - over which states to iterate during the matrix
+        creation.
+
+        Creates attributes:
+
+        self.start_row, self.end_row -> the starting and ending row/state
+        during the iteration over states in the Hamiltonian array creation.
+
+        In case self._parallel attribute of the class instance is set to False,
+        this code does nothing, except that it sets the ending and starting
+        state equal to the first and the last basis state.
+
+        """
+
+        if self._parallel:
+            print('Preparing mpi parameters!')
+            # distribute evenly
+            local_block_sizes = np.ones(
+                self._mpisize, dtype=np.int64) * np.int64(
+                self.nstates / self._mpisize)
+            # correct if the size of the basis is not divisible by mpisize
+            for i in range(0, self.nstates % self._mpisize):
+                local_block_sizes[i] += 1
+
+            start_row = 0
+            end_row = 0
+
+            for i in range(0, self._mpirank):
+                start_row += local_block_sizes[i]
+
+            end_row = start_row + local_block_sizes[self._mpirank]
+
+            self.start_row = start_row
+            self.end_row = end_row
+
+            print('Preparing mpi parameters finished!')
+        else:
+            self.start_row = 0
+            self.end_row = self.nstates
+
+    def _mpi_calculate_nnz(self):
+        """
+        Calculates the total number of nonzero
+        matrix elements in a given matrix block
+        as well as numbers of nonzero matrix
+        elements in the corresponding diagonal
+        and offdiagonal matrix blocks. Those
+        data are needed for parallel creation
+        of Hamiltonian matrices.
+
+        """
+        # nonzero elements
+        print('Calculating nnz, o_nnz, d_nnz!')
+        nnz = self.mat.nnz
+
+        cols = self.mat.indices
+        # nonzero matrix elements for each row
+        indptr = self.mat.indptr
+        d_nnz = np.diff(indptr)
+        o_nnz = np.zeros_like(d_nnz)
+
+        o_nnz, d_nnz = self._sparse_calc(indptr, cols, self.start_row,
+                                         self.end_row, d_nnz)
+
+        self._nnz = nnz
+        self._o_nnz = o_nnz
+        self._d_nnz = d_nnz
+        print('Calculating nnz, o_nnz, d_nnz finished!')
+
+    @staticmethod
+    @nb.njit(fastmath=True, cache=True, nogil=True)
+    def _sparse_calc(indptr, cols, start_row, end_row, d_nnz):
+
+        o_nnz = np.zeros_like(d_nnz)
+        low = 0
+        for i, ind in enumerate(indptr[1:]):
+
+            for j in range(low, ind):
+
+                if (cols[j] < start_row or
+                        cols[j] > end_row):
+
+                    d_nnz[i] -= 1
+                    o_nnz[i] += 1
+
+            low = ind
+
+        return o_nnz, d_nnz
