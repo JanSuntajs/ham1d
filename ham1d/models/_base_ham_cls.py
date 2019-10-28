@@ -320,10 +320,10 @@ class _hamiltonian(_decorators_mixin):
             which can spare some memory.
         """
         if complex:
-            return sla.eigvalsh(self.mat.todense(), *args, **kwargs)
+            return np.linalg.eigvalsh(self.mat.todense(), *args, **kwargs)
         else:
-            return sla.eigvalsh(np.real(self.mat).todense(),
-                                *args, **kwargs)
+            return np.linalg.eigvalsh(np.real(self.mat).todense(),
+                                      *args, **kwargs)
 
     def eigsystem(self, complex=True, *args, **kwargs):
         """
