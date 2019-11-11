@@ -99,7 +99,7 @@ class Entangled(object):
         if self._s_coeffs is not None:
 
             eentro = -np.sum(self._s_coeffs**2 *
-                             np.log(self.s_coeffs**2))
+                             np.log(self._s_coeffs**2))
         else:
             print('Warning! Entanglement entropy will be set to None!')
             eentro = None
