@@ -45,7 +45,7 @@ def _partition_homogenous(eigenstate, L, L_sub):
 
     # reshape the eigenstate -> write it as a tensor
     # product of the two subsystems
-    eig_mat = eigenstate.reshape(eigenstate, (2**L_sub, 2**L_sub_))
+    eig_mat = eigenstate.reshape((2**L_sub, 2**L_sub_))
 
     return eig_mat
 
