@@ -10,7 +10,7 @@ function needs to be added in the partition_fun.py module.
 
 
 import numpy as np
-from scipy import linalg
+from numpy import linalg
 
 from .partition_fun import partition_dict
 
