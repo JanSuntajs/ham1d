@@ -16,6 +16,7 @@ class hamiltonian(_hamiltonian_numba):
         self.L = L
         self.dim = dim
         self.pbc = pbc
+        self.Nu = None
         self._params_changed = False
 
         # set model parameters
