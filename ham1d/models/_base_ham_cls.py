@@ -482,6 +482,92 @@ class _hamiltonian_numba(_hamiltonian):
 
         self.nstates = len(self.states)
 
+    def parity_shuffle(self):
+        """
+        A routine for obtaining the basis state indices
+        after the parity operator has acted on the basis.
+        The parity operator is a mapping:
+        x -> -x
+        or, schematically for some representative state:
+        1 0 1 0 -> 0 1 0 1
+
+        Returns:
+
+        parity_indices: ndarray, dtype=np.uint64
+                        An array of indices which corresponds
+                        to the indices of the states which we
+                        obtained after the basis has been
+                        acted on by the parity operator. We can
+                        then use the parity_indices array in order
+                        to reshuffle an arbitrary vector thereby
+                        simulating the action of the parity operator
+                        on the state. The shuffling of the vector
+                        is done like this:
+                        shuffled_state = state[parity_indices],
+                        given that state is stored as a numpy array.
+        """
+        if not self._free:
+            parity_indices = bmp.get_parity_indices(
+                self.states, self.nstates, self.L)
+
+        else:
+            print(('Parity symmetry not yet '
+                   'implemented for the free model!'))
+            return
+
+        return parity_indices
+
+    def particle_hole_shuffle(self):
+        """
+        A routine for obtaining the basis state indices
+        after the particle-hole reversal operator has acted on the basis.
+        By particle-hole reversal we refer to switching holes
+        (down spins) with the particles (up spins) and vice versa.
+        An example:
+
+        0 1 1 0 1 - (particle-hole reversal) -> 1 0 0 1 0
+
+        Returns:
+
+        parity_indices: ndarray, dtype=np.uint64
+                        An array of indices which corresponds
+                        to the indices of the states which we
+                        obtained after the basis has been
+                        acted on by the parity operator. We can
+                        then use the parity_indices array in order
+                        to reshuffle an arbitrary vector thereby
+                        simulating the action of the parity operator
+                        on the state. The shuffling of the vector
+                        is done like this:
+                        shuffled_state = state[parity_indices],
+                        given that state is stored as a numpy array.
+        """
+        if not self._free:
+
+            # if a special sector of Nu is considered
+            # we need to make sure the switched states
+            # are also inside our Hilbert space
+            if self.Nu is not None:
+                # check that both nu and L-nu are present
+                condition = all([(self.L - nu in self.Nu) for nu in self.Nu])
+
+                if not condition:
+                    print(('particle_hole_shuffle info: '
+                           'Both Nu and L-Nu need to be present. '
+                           'Particle-hole symmetry will not be tested.'))
+                    return
+
+            parity_indices = bmp.get_parity_indices(
+                self.states, self.nstates, self.L)
+
+        else:
+            print(('particle_hole_shuffle info: '
+                   'Particle-hole symmetry not yet '
+                   'implemented for the free model!'))
+            return
+
+        return parity_indices
+
     def build_mat(self):
         """
         A routine for building the whole hamiltonian
@@ -496,11 +582,12 @@ class _hamiltonian_numba(_hamiltonian):
 
         if self._static_changed:
 
-            ham_static = {static_key[0]: csr_matrix((self.end_row -
-                                                     self.start_row,
-                                                     self.nstates),
-                                                    dtype=np.complex128)
-                          for static_key in self.static_list}
+            ham_static = {
+                static_key[0]:
+                csr_matrix((self.end_row - self.start_row,
+                            self.nstates),
+                           dtype=np.complex128)
+                for static_key in self.static_list}
 
             for term in self.static_list:
 
@@ -518,8 +605,8 @@ class _hamiltonian_numba(_hamiltonian):
                     self.state_indices, coups, sites, ops)
 
                 mat = csr_matrix((vals, (rows, cols)),
-                                 shape=(self.end_row -
-                                        self.start_row, self.nstates),
+                                 shape=(self.end_row - self.start_row,
+                                        self.nstates),
                                  dtype=np.complex128)
 
                 # NOTE: this step assigns all the terms corresponding
@@ -625,8 +712,7 @@ class _hamiltonian_numba(_hamiltonian):
 
             for j in range(low, ind):
 
-                if (cols[j] < start_row or
-                        cols[j] > end_row):
+                if (cols[j] < start_row or cols[j] > end_row):
 
                     d_nnz[i] -= 1
                     o_nnz[i] += 1

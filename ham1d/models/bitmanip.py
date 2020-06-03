@@ -217,6 +217,60 @@ def getbit(state, bit):
     return bitval
 
 
+@nb.njit("uint64(uint64, uint32)")
+def particleHoleFlip(state, L):
+    """
+    A routine for flipping all bits
+    of a state. e.g. exchanging zeros
+    to ones.
+
+
+    INPUT:
+    state: uint64
+        The state for which all the bits
+        are to be flipped.
+    L: uint32
+       System size.
+
+    OUTPUT:
+    flipped: uint64
+        The state with all bits flipped.
+
+    """
+    flipped = np.uint64((state) ^ ((1 << L) - 1))
+
+    return flipped
+
+
+@nb.njit("uint64(uint64, uint32)")
+def parityReverse(state, L):
+    """
+    A routine for spatially inverting
+    a state, e.g. performing a
+    transformation x -> -x, or,
+    schematically:
+    1 0 1 0 -> 0 1 0 1
+
+    INPUT:
+    state: uint64
+        The state to be reversed.
+    L: uint32
+       System size.
+
+    OUTPUT:
+    reverse: uint64
+        The reversed state.
+
+    """
+    reverse = np.uint64(0)
+    for bit in range(L):
+
+        if getbit(state, bit):
+            reverse += 1 << (L - 1 - bit)
+
+    return reverse
+
+
 @nb.njit("uint32(uint64, int32, int32)")
 def countBitsInterval(n, right, left):
     """
@@ -262,3 +316,120 @@ def countBitsInterval(n, right, left):
             count += getbit(n, i)
 
     return count
+
+
+_symmetry_signature = (
+    'uint64[:](uint64[:], uint64[:], uint32)')
+
+
+@nb.njit(_symmetry_signature)
+def get_parity_indices(states, state_indices, L):
+    """
+    Numba-optimized code for obtaining the indices
+    of the basis states after the basis has been
+    acted on with the parity operator which reverses
+    the spatial coordinates as (in 1-D):
+    x -> -x.
+    The routine is used in case we wish to investigate
+    the parity symmetry properties of the eigenspectra
+    of the investigated Hamiltonians. After a certain
+    (eigen)state is chosen, the parity operator action
+    upon the state is simulated by shuffling the state's
+    components by the output of the get_parity_indices(...)
+    function which we store in an array named indices_.
+    Since the state is stored as a numpy vector, the parity
+    operator action is encoded simply as:
+
+    state_parity = state[indices_]
+
+    INPUT:
+
+    states: np.array, dtype=np.uint64
+        An array of states available to the system.
+    state_indices: np.array, dtype=np.uint64
+        A helper array used for finding the index
+        of a state which was obtained after hamiltonian
+        action on some selected initial state. Both
+        states and state_indices arrays are usually
+        provided as the output of the
+        bitmanip.select_states(...) function.
+    L: uint32
+       System size.
+
+    OUTPUT:
+
+    vals: np.array, dtype=np.complex128
+        Values of the matrix elements whose
+        positions are given by the entries in
+        the rows and cols arrays.
+
+    """
+
+    indices = []
+
+    # for i, state in enumerate(states):
+    for i in range(len(states)):
+        state = states[i]
+
+        newstate = parityReverse(state, L)
+        indices.append(state_indices[newstate])
+
+    return np.array(indices, dtype=np.uint64)
+
+
+@nb.njit(_symmetry_signature)
+def get_particle_hole_indices(states, state_indices, L):
+    """
+    Numba-optimized code for obtaining the indices
+    of the basis states after the basis has been
+    acted on with the particle-hole symmetry operator which
+    swaps particles with holes and vice versa.
+    In binary representation, an example of such an action
+    would be:
+    1 0 1 1 -> 0 1 0 0 
+
+    The routine is used in case we wish to investigate
+    the particle-hole symmetry properties of the eigenspectra
+    of the investigated Hamiltonians. After a certain
+    (eigen)state is chosen, the particle-hole symmetry operator action
+    upon the state is simulated by shuffling the state's
+    components by the output of the get_particle_hole_indices(...)
+    function which we store in an array named indices_.
+    Since the state is stored as a numpy vector, the parity
+    operator action is encoded simply as:
+
+    state_parity = state[indices_]
+
+    INPUT:
+
+    states: np.array, dtype=np.uint64
+        An array of states available to the system.
+    state_indices: np.array, dtype=np.uint64
+        A helper array used for finding the index
+        of a state which was obtained after hamiltonian
+        action on some selected initial state. Both
+        states and state_indices arrays are usually
+        provided as the output of the
+        bitmanip.select_states(...) function.
+    L: uint32
+       System size.
+
+    OUTPUT:
+
+    vals: np.array, dtype=np.complex128
+        Values of the matrix elements whose
+        positions are given by the entries in
+        the rows and cols arrays.
+
+    """
+
+    indices = []
+
+    # for i, state in enumerate(states):
+    for i in range(len(states)):
+        state = states[i]
+
+        newstate = particleHoleFlip(state, L)
+        indices.append(state_indices[newstate])
+
+    return np.array(indices, dtype=np.uint64)

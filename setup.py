@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 
 setup(name='ham1d',
-      version='1.1.0',
+      version='1.2.0',
       description='A module for calculations with 1D quantum hamiltonians',
       url='https://github.com/JanSuntajs/ham1d',
       author='Jan Suntajs',
