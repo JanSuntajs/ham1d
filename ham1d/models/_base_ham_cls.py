@@ -508,7 +508,7 @@ class _hamiltonian_numba(_hamiltonian):
         """
         if not self._free:
             parity_indices = bmp.get_parity_indices(
-                self.states, self.nstates, self.L)
+                self.states, self.state_indices, np.uint32(self.L))
 
         else:
             print(('Parity symmetry not yet '
@@ -558,7 +558,7 @@ class _hamiltonian_numba(_hamiltonian):
                     return
 
             parity_indices = bmp.get_parity_indices(
-                self.states, self.nstates, self.L)
+                self.states, self.state_indices, np.uint32(self.L))
 
         else:
             print(('particle_hole_shuffle info: '
