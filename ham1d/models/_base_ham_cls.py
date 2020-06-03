@@ -557,7 +557,7 @@ class _hamiltonian_numba(_hamiltonian):
                            'Particle-hole symmetry will not be tested.'))
                     return
 
-            parity_indices = bmp.get_parity_indices(
+            parity_indices = bmp.get_particle_hole_indices(
                 self.states, self.state_indices, np.uint32(self.L))
 
         else:
