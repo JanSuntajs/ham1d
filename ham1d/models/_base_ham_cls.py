@@ -45,6 +45,7 @@ class _decorators_mixin(object):
     """
     A class for decorators which
     are mainly used for input checking.
+
     """
 
     @classmethod
@@ -106,55 +107,14 @@ class _hamiltonian(_decorators_mixin):
     Creates a class which constructs the
     spin chain hamiltonian.
 
-    Parameters
+    Attributes
     ----------
 
-    L: int
-        An integer specifying the spin chain length.
 
-    static_list: list
-        A nested list of the operator description strings
-        and site-coupling lists for the time-independent
-        part of the Hamiltonian. An example of the
-        static_ham list would be:
 
-            static_ham = [['zz', J_zz]]
 
-        Here, 'zz' is the operator descriptor string specifiying
-        2-spin interaction along the z-axis direction. For a chain-
-        of L sites with constant nearest-neighbour exchange
-        J and PBC, the site coupling list would be given by:
-
-            J_zz = [[J, i, (i+1)%L] for i in range(L)]
-
-        In the upper expression, J is the term describing
-        the interaction strength and the following entries
-        in the inner list specify the positions of the coupled
-        sites. The upper example should serve as a general
-        template which should allow for simple extension to
-        the case of n-spin interaction and varying couplings.
-
-    dynamic_list: list
-        A nested list of the operator description strings. The
-        description is similar to the static_ham description,
-        however, additional terms are needed to incorporate
-        the time dependence: an example would be:
-
-            dynamic_ham = [['zz', J_zz, time_fun, time_fun_args]]
-
-        Here, 'zz' is the same operator descriptor string as the
-        one in the static case. J_zz, however, now refers to
-        the initial (dynamic) site coupling list at t=0. time_fun
-        is a function object describing a protocol for
-        time-dependent part of the hamiltonian with the following
-        interface: time_fun(t, *time_fun_args) where time_fun_args
-        are the possible additional arguments of the time-dependence.
-
-    Nu: {int, None}
-        Number of up spins, relevant for the hamiltonians where the
-        total spin z projection is a conserved quantity. Defaults to
-        None.
-
+    Methods
+    -------
 
     """
 
@@ -168,7 +128,56 @@ class _hamiltonian(_decorators_mixin):
 
     def __init__(self, L, static_list, dynamic_list=[], t=0, Nu=None):
         super(_hamiltonian, self).__init__()
+        """
+        Parameters
+        ----------
 
+        L: int
+            An integer specifying the spin chain length.
+
+        static_list: list
+            A nested list of the operator description strings
+            and site-coupling lists for the time-independent
+            part of the Hamiltonian. An example of the
+            static_ham list would be:
+
+                static_ham = [['zz', J_zz]]
+
+            Here, 'zz' is the operator descriptor string specifiying
+            2-spin interaction along the z-axis direction. For a chain-
+            of L sites with constant nearest-neighbour exchange
+            J and PBC, the site coupling list would be given by:
+
+                J_zz = [[J, i, (i+1)%L] for i in range(L)]
+
+            In the upper expression, J is the term describing
+            the interaction strength and the following entries
+            in the inner list specify the positions of the coupled
+            sites. The upper example should serve as a general
+            template which should allow for simple extension to
+            the case of n-spin interaction and varying couplings.
+
+        dynamic_list: list. optional
+            A nested list of the operator description strings. The
+            description is similar to the static_ham description,
+            however, additional terms are needed to incorporate
+            the time dependence: an example would be:
+
+                dynamic_ham = [['zz', J_zz, time_fun, time_fun_args]]
+
+            Here, 'zz' is the same operator descriptor string as the
+            one in the static case. J_zz, however, now refers to
+            the initial (dynamic) site coupling list at t=0. time_fun
+            is a function object describing a protocol for
+            time-dependent part of the hamiltonian with the following
+            interface: time_fun(t, *time_fun_args) where time_fun_args
+            are the possible additional arguments of the time-dependence.
+
+        Nu: {int, None}, optional
+            Number of up spins, relevant for the hamiltonians where the
+            total spin z projection is a conserved quantity. Defaults to
+            None.
+        """
         # make sure this class cannot be instantiated
         # on its own:
         if self.__class__.__name__ == '_hamiltonian':
@@ -355,78 +364,89 @@ class _hamiltonian_numba(_hamiltonian):
     code. Note that the examples below are given
     for the spin 1/2 case.
 
-    Parameters:
-    -----------
-    L: int
-        An integer specifying the spin chain length.
+    Attributes
+    ----------
 
-    static_list: list
-        A nested list of the operator description strings
-        and site-coupling lists for the time-independent
-        part of the Hamiltonian. An example of the
-        static_ham list would be:
 
-            static_ham = [['zz', J_zz]]
+    Methods
+    -------
 
-        Here, 'zz' is the operator descriptor string specifiying
-        2-spin interaction along the z-axis direction. For a chain-
-        of L sites with constant nearest-neighbour exchange
-        J and PBC, the site coupling list would be given by:
-
-            J_zz = [[J, i, (i+1)%L] for i in range(L)]
-
-        In the upper expression, J is the term describing
-        the interaction strength and the following entries
-        in the inner list specify the positions of the coupled
-        sites. The upper example should serve as a general
-        template which should allow for simple extension to
-        the case of n-spin interaction and varying couplings.
-
-    dynamic_list: list
-        A nested list of the operator description strings. The
-        description is similar to the static_ham description,
-        however, additional terms are needed to incorporate
-        the time dependence: an example would be:
-
-            dynamic_ham = [['zz', J_zz, time_fun, time_fun_args]]
-
-        Here, 'zz' is the same operator descriptor string as the
-        one in the static case. J_zz, however, now refers to
-        the initial (dynamic) site coupling list at t=0. time_fun
-        is a function object describing a protocol for
-        time-dependent part of the hamiltonian with the following
-        interface: time_fun(t, *time_fun_args) where time_fun_args
-        are the possible additional arguments of the time-dependence.
-
-    Nu: {int, None}
-        Number of up spins, relevant for the hamiltonians where the
-        total spin z projection is a conserved quantity. Defaults to
-        None.
-
-    build_mod: python module
-        Python module which should have the following attributes:
-
-            build_mod._ham_ops:
-
-    parallel: boolean, optional
-        Whether the Hamiltonian matrix is to be generated in a parallel
-        distributed manner (if parallel==True) thus allowing for the
-        usage of the specialized libraries for parallel computing, such
-        as PETSc. Defaults to False.
-
-    mpirank: int, optional.
-        Rank of the mpi process if the Hamiltonian matrix is constructed
-        in a distributed parallel manner using mpi. Defaults to 0 for
-        sequential jobs.
-
-    mpisize: int, optional.
-        Size of the mpi block in case of a distributed parallel Hamiltonian
-        matrix creation. Defaults to 0 for sequential jobs.
 
     """
 
     def __init__(self, L, static_list, dynamic_list, build_mod, t=0, Nu=None,
                  parallel=False, mpirank=0, mpisize=0):
+        """
+        Parameters:
+        -----------
+        L: int
+            An integer specifying the spin chain length.
+
+        static_list: list
+            A nested list of the operator description strings
+            and site-coupling lists for the time-independent
+            part of the Hamiltonian. An example of the
+            static_ham list would be:
+
+                static_ham = [['zz', J_zz]]
+
+            Here, 'zz' is the operator descriptor string specifiying
+            2-spin interaction along the z-axis direction. For a chain-
+            of L sites with constant nearest-neighbour exchange
+            J and PBC, the site coupling list would be given by:
+
+                J_zz = [[J, i, (i+1)%L] for i in range(L)]
+
+            In the upper expression, J is the term describing
+            the interaction strength and the following entries
+            in the inner list specify the positions of the coupled
+            sites. The upper example should serve as a general
+            template which should allow for simple extension to
+            the case of n-spin interaction and varying couplings.
+
+        dynamic_list: list
+            A nested list of the operator description strings. The
+            description is similar to the static_ham description,
+            however, additional terms are needed to incorporate
+            the time dependence: an example would be:
+
+                dynamic_ham = [['zz', J_zz, time_fun, time_fun_args]]
+
+            Here, 'zz' is the same operator descriptor string as the
+            one in the static case. J_zz, however, now refers to
+            the initial (dynamic) site coupling list at t=0. time_fun
+            is a function object describing a protocol for
+            time-dependent part of the hamiltonian with the following
+            interface: time_fun(t, *time_fun_args) where time_fun_args
+            are the possible additional arguments of the time-dependence.
+
+        Nu: {int, None}
+            Number of up spins, relevant for the hamiltonians where the
+            total spin z projection is a conserved quantity. Defaults to
+            None.
+
+        build_mod: python module
+            Python module which should have the following attributes:
+
+                build_mod._ham_ops:
+
+        parallel: boolean, optional
+            Whether the Hamiltonian matrix is to be generated in a parallel
+            distributed manner (if parallel==True) thus allowing for the
+            usage of the specialized libraries for parallel computing, such
+            as PETSc. Defaults to False.
+
+        mpirank: int, optional.
+            Rank of the mpi process if the Hamiltonian matrix is constructed
+            in a distributed parallel manner using mpi. Defaults to 0 for
+            sequential jobs.
+
+        mpisize: int, optional.
+            Size of the mpi block in case of a distributed parallel Hamiltonian
+            matrix creation. Defaults to 0 for sequential jobs.
+
+
+        """
 
         self._ham_ops = build_mod._ham_ops
         self._trans_dict = build_mod._trans_dict
@@ -491,7 +511,8 @@ class _hamiltonian_numba(_hamiltonian):
         or, schematically for some representative state:
         1 0 1 0 -> 0 1 0 1
 
-        Returns:
+        Returns
+        -------
 
         parity_indices: ndarray, dtype=np.uint64
                         An array of indices which corresponds
@@ -527,7 +548,8 @@ class _hamiltonian_numba(_hamiltonian):
 
         0 1 1 0 1 - (particle-hole reversal) -> 1 0 0 1 0
 
-        Returns:
+        Returns
+        -------
 
         parity_indices: ndarray, dtype=np.uint64
                         An array of indices which corresponds

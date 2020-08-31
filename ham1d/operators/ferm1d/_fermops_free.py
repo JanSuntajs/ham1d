@@ -24,15 +24,15 @@ def cn(state, bit, ind_in):
 
     cn = 0.5 * np.array([[1, 0], [0, -1]])
 
-    Note that in our implementation, we write the cn
-    operator in a particle-hole symmetric way, applying
-    the transformation n -> n - 1/2
     """
 
     bitval = state[bit]
     ind_out = ind_in
 
-    return 0.5 * (-1) ** bitval, state, ind_out
+    # we were previously using the particle-hole symmetric
+    # version which we no longer do
+    # return 0.5 * (-1) ** bitval, state, ind_out
+    return 1. * bitval, state, ind_out
 
 
 @nb.njit(signature)
