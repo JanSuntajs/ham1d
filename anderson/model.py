@@ -93,6 +93,12 @@ class hamiltonian(_hamiltonian_numba):
         self.states = np.arange(self.num_states, dtype=np.uint64)
         self.nstates = len(self.states)
 
+    def parity_shuffle(self):
+        """
+        IMPLEMENTATION PENDING
+        """
+        return None
+
     def build_mat(self):
 
         if self._params_changed:
