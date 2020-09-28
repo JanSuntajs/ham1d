@@ -74,11 +74,11 @@ def _ham_ops(dimensions, hopping, disorder, start_row, end_row, pbc):
                         # if pbc_ == -1, prefactor
                         # is -1 for backward hop,
                         # otherwise it is 0
-                        prefactor = (pbc_)**(1 - k)
+                        prefactor = (pbc_)**(k)
                     if condition2:
                         # if condition2, prefactor
                         # for abc is -1 for forward hop
-                        prefactor = (pbc_)**k
+                        prefactor = (pbc_)**(1-k)
                     coords_new[j] = (coords[j] + (-1) ** k) % dimensions[j]
                     state_new = get_idx(coords_new, dimensions)
                     rows.append(state)

@@ -16,14 +16,18 @@ def _make_correct_shape(param, dim, name):
     if np.isscalar(param):
 
         param = np.array([param for i in range(dim)])
+
     else:
-        param = np.array(param)
+        param = np.array(
+            param)
 
         if (param.shape != (dim,)):
 
             raise ValueError((f"{name} parameter should be "
                               "either a scalar or an iterable with length "
                               "equal to the system's dimensionality."))
+
+    return param
 
 class hamiltonian(_hamiltonian_numba):
 
@@ -59,14 +63,14 @@ class hamiltonian(_hamiltonian_numba):
     @pbc.setter
     def pbc(self, pbc):
 
-        allowed_pbc = [-1, 0, -1]
+        allowed_pbc = [-1, 0, 1]
         pbc = _make_correct_shape(pbc, self.dim, 'Pbc')
-
+        print(pbc)
         # convert to int:
         # 1 -> pbc
         # 0 -> obc
         # -1 -> abc (anti-periodic)
-        pbc = np.int32(pbc)
+        pbc = np.array([np.int32(val) for val in pbc])
 
         if all(np.isin(pbc, allowed_pbc)):
             self._pbc = pbc
@@ -85,7 +89,7 @@ class hamiltonian(_hamiltonian_numba):
 
         # make sure the hopping param
         # is of correct shape
-        hopping = _make_correct_shape(pbc, self.dim, 'Hopping')
+        hopping = _make_correct_shape(hopping, self.dim, 'Hopping')
 
         self._hopping = hopping
         self._params_changed = True
