@@ -6,6 +6,25 @@ from ham1d.models._base_ham_cls import _hamiltonian_numba
 from .operators import ham_ops
 
 
+def _make_correct_shape(param, dim, name):
+    """
+    Parse parameters into correct shape
+    in case parameter values are different
+    in different directions
+    """
+
+    if np.isscalar(param):
+
+        param = np.array(param for i in range(dim))
+    else:
+        param = np.array(param)
+
+        if (param.shape != (dim,)):
+
+            raise ValueError((f"{name} parameter should be "
+                              "either a scalar or an iterable with length "
+                              "equal to the system's dimensionality."))
+
 class hamiltonian(_hamiltonian_numba):
 
     def __init__(self, L, dim, hopping, disorder,
@@ -33,6 +52,30 @@ class hamiltonian(_hamiltonian_numba):
         self.build_mat()
 
     @property
+    def pbc(self):
+
+        return self._pbc
+
+    @pbc.setter
+    def pbc(self, pbc):
+
+        allowed_pbc = [-1, 0, -1]
+        pbc = _make_correct_shape(pbc, self.dim, 'Pbc')
+
+        # convert to int:
+        # 1 -> pbc
+        # 0 -> obc
+        # -1 -> abc (anti-periodic)
+        pbc = int(pbc)
+
+        if all(np.isin(pbc, allowed_pbc)):
+            self._pbc = pbc
+        else:
+            return ValueError("Pbc setting error! Allowed values are: "
+                              "1 for periodic bc, 0 for open bc and "
+                              "-1 for anti periodic bc.")
+
+    @property
     def hopping(self):
 
         return self._hopping
@@ -42,17 +85,7 @@ class hamiltonian(_hamiltonian_numba):
 
         # make sure the hopping param
         # is of correct shape
-        if np.isscalar(hopping):
-
-            hopping = np.array([hopping for i in range(self.dim)])
-        else:
-            hopping = np.array(hopping)
-
-            if (hopping.shape != (self.dim,)):
-
-                raise ValueError(("Hopping parameter should be "
-                                  "either a scalar or an iterable with length "
-                                  "equal to the system's dimensionality."))
+        hopping = _make_correct_shape(pbc, self.dim, 'Hopping')
 
         self._hopping = hopping
         self._params_changed = True

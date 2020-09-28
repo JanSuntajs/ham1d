@@ -5,7 +5,7 @@ import numba as nb
 _signature1 = 'uint64[:](uint64, uint64[:])'
 _signature2 = 'uint64(uint64[:], uint64[:])'
 _signature3 = ('Tuple((uint64[:], uint64[:], float64[:]))(uint64[:]'
-               ', float64[:], float64[:], uint64, uint64, b1)')
+               ', float64[:], float64[:], uint64, uint64, uint64[:])')
 
 
 @nb.njit('uint64[:](uint64[:])', nogil=True, fastmath=True, cache=True)
@@ -54,19 +54,41 @@ def _ham_ops(dimensions, hopping, disorder, start_row, end_row, pbc):
 
         for j, coord in enumerate(coords):
 
+            # pbc can be 1 (periodic), 0 (open), -1 (antiperiodic)
+            pbc_ = pbc[j]
             condition1 = (coord == 0)
             condition2 = (coord == dimensions[j] - 1)
             condition3 = not (condition1 or condition2)
 
             coords_new = np.copy(coords)
-            if (pbc or condition3):
+            # forward and backward hopping along the axis direction
+            # if pbc_ is nonzero or condition3 is valid, we either
+            # have the (anti)periodic bc or we are not on the boundary
+            if (pbc_ or condition3):
                 for k in range(2):
 
+                    prefactor = 1
+                    if condition1:
+                        # if pbc_== 1, prefactor
+                        # is always 1
+                        # if pbc_ == -1, prefactor
+                        # is -1 for backward hop,
+                        # otherwise it is 0
+                        prefactor = (pbc_)**(1 - k)
+                    if condition2:
+                        # if condition2, prefactor
+                        # for abc is -1 for forward hop
+                        prefactor = (pbc_)**k
                     coords_new[j] = (coords[j] + (-1) ** k) % dimensions[j]
                     state_new = get_idx(coords_new, dimensions)
                     rows.append(state)
                     cols.append(state_new)
-                    vals.append(hopping[j])
+                    # if pbc_==1, this does not affect pbc hopping
+                    # if pbc_==-1, we have anti-periodic bc and
+                    # hence a factor of -1 is obtained
+
+                    vals.append(hopping[j] * prefactor)
+            # if on the boundary and obc
             elif (condition1 or condition2):
                 if condition1:
                     coords_new[j] = (coords[j] + 1)
