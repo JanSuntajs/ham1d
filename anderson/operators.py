@@ -5,7 +5,7 @@ import numba as nb
 _signature1 = 'uint64[:](uint64, uint64[:])'
 _signature2 = 'uint64(uint64[:], uint64[:])'
 _signature3 = ('Tuple((uint64[:], uint64[:], float64[:]))(uint64[:]'
-               ', float64[:], float64[:], uint64, uint64, uint64[:])')
+               ', float64[:], float64[:], uint64, uint64, int32[:])')
 
 
 @nb.njit('uint64[:](uint64[:])', nogil=True, fastmath=True, cache=True)

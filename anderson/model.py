@@ -15,7 +15,7 @@ def _make_correct_shape(param, dim, name):
 
     if np.isscalar(param):
 
-        param = np.array(param for i in range(dim))
+        param = np.array([param for i in range(dim)])
     else:
         param = np.array(param)
 
@@ -66,7 +66,7 @@ class hamiltonian(_hamiltonian_numba):
         # 1 -> pbc
         # 0 -> obc
         # -1 -> abc (anti-periodic)
-        pbc = int(pbc)
+        pbc = np.int32(pbc)
 
         if all(np.isin(pbc, allowed_pbc)):
             self._pbc = pbc
