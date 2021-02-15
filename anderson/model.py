@@ -33,7 +33,7 @@ class hamiltonian(_hamiltonian_numba):
 
     def __init__(self, L, dim, hopping, disorder,
                  pbc=True, t=0, parallel=False, mpirank=0,
-                 mpisize=0):
+                 mpisize=0, dtype=np.float64):
 
         # set system parameters
         self.L = L
@@ -53,7 +53,7 @@ class hamiltonian(_hamiltonian_numba):
         self._make_basis()
         self._mpi_prepare_params()
 
-        self.build_mat()
+        self.build_mat(dtype)
 
     @property
     def pbc(self):

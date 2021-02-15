@@ -7,7 +7,7 @@ _signature2 = 'uint64(uint64[:], uint64[:])'
 _signature3 = ('Tuple((uint64[:], uint64[:], float64[:]))(uint64[:]'
                ', float64[:], float64[:], uint64, uint64, int32[:])')
 _signature4 = ('Tuple((uint64[:], uint64[:], complex128[:]))(uint64[:], '
-               'complex128[:], float64[:], uint64, uint64, complex128[:])')
+               'complex128[:], complex128[:], uint64, uint64, complex128[:])')
 
 
 @nb.njit('uint64[:](uint64[:])', nogil=True, fastmath=True, cache=True)
@@ -82,14 +82,14 @@ def _ham_ops(dimensions, hopping, disorder, start_row, end_row, pbc):
                         # the product of the hopping term
                         # and the boundary phase
                         if k == 1:
-                            prefactor == pbc_
+                            prefactor = pbc_
 
                     if condition2:
                         # if we are on the right edge
                         # this is the forward hopping,
                         # so no conjugation here
                         if k == 0:
-                            prefactor == pbc_
+                            prefactor = pbc_
 
                     hopping_ = prefactor * hopping_
                     if k == 1:
