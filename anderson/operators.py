@@ -6,6 +6,8 @@ _signature1 = 'uint64[:](uint64, uint64[:])'
 _signature2 = 'uint64(uint64[:], uint64[:])'
 _signature3 = ('Tuple((uint64[:], uint64[:], float64[:]))(uint64[:]'
                ', float64[:], float64[:], uint64, uint64, int32[:])')
+_signature4 = ('Tuple((uint64[:], uint64[:], complex128[:]))(uint64[:], '
+               'complex128[:], float64[:], uint64, uint64, complex128[:])')
 
 
 @nb.njit('uint64[:](uint64[:])', nogil=True, fastmath=True, cache=True)
@@ -41,7 +43,7 @@ def get_idx(coordinates, dimensions):
     return np.uint64((1.0 * coordinates).dot(products * 1.0))
 
 
-@nb.njit(_signature3, fastmath=True, nogil=True, cache=True)
+@nb.njit(_signature4, fastmath=True, nogil=True, cache=True)
 def _ham_ops(dimensions, hopping, disorder, start_row, end_row, pbc):
 
     rows = []
@@ -61,62 +63,72 @@ def _ham_ops(dimensions, hopping, disorder, start_row, end_row, pbc):
             condition3 = not (condition1 or condition2)
 
             coords_new = np.copy(coords)
-            # forward and backward hopping along the axis direction
-            # if pbc_ is nonzero or condition3 is valid, we either
-            # have the (anti)periodic bc or we are not on the boundary
+            # forward and backward hopping are possible
+            # if we do not have open boundary conditions
+            # or if we are inside the lattice (away from
+            # the edges)
             if (pbc_ or condition3):
                 for k in range(2):
 
-                    prefactor = 1
+                    # k == 0: right hop
+                    # k == 1: left hop
+                    # we can distinguish three cases
+                    # as per what has to be
+                    prefactor = 1.
+                    hopping_ = hopping[j]
                     if condition1:
-                        # if pbc_== 1, prefactor
-                        # is always 1
-                        # if pbc_ == -1, prefactor
-                        # is -1 for backward hop,
-                        # otherwise it is 0
-                        prefactor = (pbc_)**(k)
+                        # on the left edge, left hopping
+                        # traverses the boundary, so conjugate
+                        # the product of the hopping term
+                        # and the boundary phase
+                        if k == 1:
+                            prefactor == pbc_
+
                     if condition2:
-                        # if condition2, prefactor
-                        # for abc is -1 for forward hop
-                        prefactor = (pbc_)**(1-k)
+                        # if we are on the right edge
+                        # this is the forward hopping,
+                        # so no conjugation here
+                        if k == 0:
+                            prefactor == pbc_
+
+                    hopping_ = prefactor * hopping_
+                    if k == 1:
+                        hopping_ = np.conjugate(hopping_)
                     coords_new[j] = (coords[j] + (-1) ** k) % dimensions[j]
                     state_new = get_idx(coords_new, dimensions)
                     rows.append(state)
                     cols.append(state_new)
-                    # if pbc_==1, this does not affect pbc hopping
-                    # if pbc_==-1, we have anti-periodic bc and
-                    # hence a factor of -1 is obtained
-
-                    vals.append(hopping[j] * prefactor)
+                    vals.append(hopping_)
             # if on the boundary and obc
             elif (condition1 or condition2):
+                hopping_ = hopping[j]
                 if condition1:
                     coords_new[j] = (coords[j] + 1)
                     state_new = get_idx(coords_new, dimensions)
-
                 elif condition2:
                     coords_new[j] = (coords[j] - 1)
                     state_new = get_idx(coords_new, dimensions)
+                    hopping_ = np.conjugate(hopping_)
 
                 rows.append(state)
                 cols.append(state_new)
-                vals.append(hopping[j])
+                vals.append(hopping_)
 
         rows.append(state)
         cols.append(state)
         vals.append(disorder[state])
 
-    rows = np.array(rows, dtype=np.uint64)
-    cols = np.array(cols, dtype=np.uint64)
-    vals = np.array(vals, dtype=np.float64)
+    rows = np.array(rows, dtype=np.uint64)  # dtype=np.uint64)
+    cols = np.array(cols, dtype=np.uint64)  # dtype=np.uint64)
+    vals = np.array(vals, dtype=np.complex128)  # dtype=np.float64)
     return rows, cols, vals
 
 
 def ham_ops(dimensions, hopping, disorder, start_row, end_row, pbc=True):
 
     dimensions = np.array(dimensions, dtype=np.uint64)
-    hopping = np.array(hopping, dtype=np.float64)
-    disorder = np.array(disorder, dtype=np.float64).flatten()
+    hopping = np.array(hopping, dtype=np.complex128)
+    disorder = np.array(disorder, dtype=np.complex128).flatten()
 
     rows, cols, vals = _ham_ops(
         dimensions, hopping, disorder, start_row, end_row, pbc)

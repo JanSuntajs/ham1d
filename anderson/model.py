@@ -62,22 +62,22 @@ class hamiltonian(_hamiltonian_numba):
 
     @pbc.setter
     def pbc(self, pbc):
-
-        allowed_pbc = [-1, 0, 1]
+        """
+        Allowed values:
+        0: open boundary conditions
+        or a complex number on a unit circle denoting
+        a complex
+        """
         pbc = _make_correct_shape(pbc, self.dim, 'Pbc')
-        print(pbc)
-        # convert to int:
-        # 1 -> pbc
-        # 0 -> obc
-        # -1 -> abc (anti-periodic)
-        pbc = np.array([np.int32(val) for val in pbc])
 
-        if all(np.isin(pbc, allowed_pbc)):
+        pbc = np.array([np.complex128(val) for val in pbc])
+
+        if all((np.abs(pbc) == 1.) | (pbc == 0.)):
             self._pbc = pbc
         else:
             return ValueError("Pbc setting error! Allowed values are: "
-                              "1 for periodic bc, 0 for open bc and "
-                              "-1 for anti periodic bc.")
+                              "0 for open bc, or a complex number on the "
+                              "unit circle for general bc. ")
 
     @property
     def hopping(self):
@@ -136,7 +136,7 @@ class hamiltonian(_hamiltonian_numba):
         """
         return None
 
-    def build_mat(self):
+    def build_mat(self, dtype=np.float64):
 
         if self._params_changed:
 
@@ -146,9 +146,9 @@ class hamiltonian(_hamiltonian_numba):
                                        self.end_row, self.pbc)
 
             mat = csr_matrix((vals, (rows, cols)),
-                             shape=(self.end_row -
-                                    self.start_row, self.nstates),
-                             dtype=np.float64)
+                             shape=(self.end_row - self.start_row,
+                                    self.nstates),
+                             dtype=dtype)
 
             self._params_changed = False
             self._mat = mat
