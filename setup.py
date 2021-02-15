@@ -9,11 +9,9 @@ setup(name='ham1d',
       author_email='Jan.Suntajs@ijs.si',
       license='MIT',
       packages=find_packages(),
-      install_requires=['spectral_stats', 'dataIO'],
+      install_requires=['spectral_stats'],
       dependency_links=[('https://github.com/JanSuntajs/'
                          'spectral_statistics_tools/tarball/'
                          'master/#egg=spectral_stats-1.1.0'),
-                        ('https://github.com/JanSuntajs/'
-                         'spectral_statistics_tools/tarball/'
-                         'master/#egg=dataIO-1.1.0')],
+                       ],
       zip_safe=False)
