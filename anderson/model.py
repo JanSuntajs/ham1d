@@ -76,8 +76,8 @@ class hamiltonian(_hamiltonian_numba):
             self._pbc = pbc
         else:
             raise ValueError("Pbc setting error! Allowed values are: "
-                              "0 for open bc, or a complex number on the "
-                              "unit circle for general bc. ")
+                             "0 for open bc, or a complex number on the "
+                             "unit circle for general bc. ")
 
     @property
     def hopping(self):
