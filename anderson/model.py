@@ -75,7 +75,7 @@ class hamiltonian(_hamiltonian_numba):
         if all((np.abs(pbc) == 1.) | (pbc == 0.)):
             self._pbc = pbc
         else:
-            return ValueError("Pbc setting error! Allowed values are: "
+            raise ValueError("Pbc setting error! Allowed values are: "
                               "0 for open bc, or a complex number on the "
                               "unit circle for general bc. ")
 
