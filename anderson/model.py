@@ -66,13 +66,13 @@ class hamiltonian(_hamiltonian_numba):
         Allowed values:
         0: open boundary conditions
         or a complex number on a unit circle denoting
-        a complex
+        a complex boundary condition.
         """
         pbc = _make_correct_shape(pbc, self.dim, 'Pbc')
 
         pbc = np.array([np.complex128(val) for val in pbc])
 
-        if all((np.abs(pbc) == 1.) | (pbc == 0.)):
+        if all((np.around(np.abs(pbc), 15) == 1.) | (pbc == 0.)):
             self._pbc = pbc
 
         else:
