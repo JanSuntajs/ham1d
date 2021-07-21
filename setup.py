@@ -12,6 +12,6 @@ setup(name='ham1d',
       install_requires=['spectral_stats'],
       dependency_links=[('https://github.com/JanSuntajs/'
                          'spectral_statistics_tools/tarball/'
-                         'master/#egg=spectral_stats-1.1.0'),
+                         'master/#egg=spectral_stats-1.1.1'),
                        ],
       zip_safe=False)

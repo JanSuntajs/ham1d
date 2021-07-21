@@ -49,6 +49,7 @@ class hamiltonian(_hamiltonian_numba):
         self._parallel = parallel
         self._mpirank = mpirank
         self._mpisize = mpisize
+        self._dtype = dtype
 
         self._make_basis()
         self._mpi_prepare_params()
@@ -122,7 +123,7 @@ class hamiltonian(_hamiltonian_numba):
     def mat(self):
 
         if self._params_changed:
-            self.build_mat()
+            self.build_mat(dtype=self._dtype)
 
         return self._mat
 
@@ -137,7 +138,7 @@ class hamiltonian(_hamiltonian_numba):
         """
         return None
 
-    def build_mat(self, dtype=np.float64):
+    def build_mat(self, dtype):
 
         if self._params_changed:
 
