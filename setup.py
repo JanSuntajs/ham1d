@@ -10,7 +10,7 @@ setup(name='ham1d',
       license='MIT',
       packages=find_packages(),
       install_requires=[('spectral_stats @ git+https://github.com/JanSuntajs/'
-                        'spectral_statistics_tools.git#egg=spectral_stats-1.1.1')], #/tarball/master/'
+                        'spectral_statistics_tools/tree/master/spectral_stats#egg=spectral_stats-1.1.1')], #/tarball/master/'
                          #'#egg=spectral_stats-1.1.1'), ],
       # dependency_links=[('https://github.com/JanSuntajs/'
       #                   'spectral_statistics_tools/tarball/'
