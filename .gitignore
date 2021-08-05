@@ -1,7 +1,7 @@
 ###Python###
 
 # local folders
-/jupyter_notebooks
+/jupyter_notebooks_local
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
