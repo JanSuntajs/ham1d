@@ -6,6 +6,38 @@ spin 1/2 case.
 An analogous interface is defined for the fermionic
 case in the ferm1d subpackage.
 
+We wish to achieve consistency of matrix
+representations for different Hamiltonian
+implementations (eg. between the Numba
+Hamiltonian and the Kronecker product
+implementation).
+
+Since in the spin1d implementation, the order
+of construction is such that the last bit is
+the most significant (i. e., it changes the
+slowest) we mimic this behaviour here by adjusting
+the order of multiplications in the tensor
+product -> imagine we have a chain of length L:
+
+  0  -  1  -  2  -  ...  -  i  -  i+1  -  ...  L-1
+
+With the corresponding operators:
+ A_0 -  A_1 - A_2 - ... - A_i -  A_i+1 - ... A_L-1
+
+We would build the operator tensor product like this:
+
+  A_L x A_{L-1} x ... x A_i x A_i-1 x A_i-2 x ... x A_1 x A_0
+
+
+Also note: since the spin1d operator is constructed row-wise
+(using the csr matrix format for the sparse matrix) where we
+map each row into differen columns, a conjugate transpose of
+the Kronecker product Hamiltonian has to taken in order
+to ensure compatibility with the other variant. Since we are
+typically dealing with Hamiltonian (e.g., Hermitian objects)
+this shouldn't pose too much of a problem in most cases, however,
+it has to be kept in mind in applications where one would want
+to combine both implementations.
 """
 
 
@@ -198,11 +230,13 @@ _trans_dict = {'+': 0,
                'I': 2,
                'x': 3,
                'y': 4,
-               'z': 5}
+               'z': 5,
+               'R': 6}
 
 operators = {'+': so.sp,
              '-': so.sm,
              'I': so.id2,
              'x': so.sx,
              'y': so.sy,
-             'z': so.sz}
+             'z': so.sz,
+             'R': None}

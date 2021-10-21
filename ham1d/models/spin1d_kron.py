@@ -7,9 +7,10 @@ from ._base_ham_cls import _hamiltonian
 
 class hamiltonian(operators_mixin, _hamiltonian):
 
-    def __init__(self, L, static_list, dynamic_list, t=0, Nu=None):
+    def __init__(self, L, static_list, dynamic_list, t=0, Nu=None, grain_list=[]):
         self._ops = _spinops.operators
-        super(hamiltonian, self).__init__(L, static_list, dynamic_list, t, Nu)
+        super(hamiltonian, self).__init__(
+            L, static_list, dynamic_list, t, Nu, grain_list)
         self.build_mat()
 
     # build the hamiltonian matrix
@@ -71,7 +72,11 @@ class hamiltonian(operators_mixin, _hamiltonian):
 
                 for coupling in couplings:
 
-                    ham += self.make_op(ham_term[0], coupling)
+                    if static_key != 'RR':
+                        ham += self.make_op(static_key, coupling)
+                    else:
+
+                        ham += self._build_rnd_grain(static_key, coupling)
 
                 if static_key in ham_static.keys():
                     static_key = static_key + '_'

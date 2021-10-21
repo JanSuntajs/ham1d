@@ -36,9 +36,10 @@ import functools
 import numba as nb
 from scipy import linalg as sla
 from scipy.sparse import csr_matrix
+from scipy import sparse as ssp
 
 from . import bitmanip as bmp
-
+from .buildham import rnd_mat
 
 class _decorators_mixin(object):
 
@@ -126,7 +127,8 @@ class _hamiltonian(_decorators_mixin):
     # for noninteracting systems.
     _free = False
 
-    def __init__(self, L, static_list, dynamic_list=[], t=0, Nu=None):
+    def __init__(self, L, static_list, dynamic_list=[], t=0, Nu=None,
+                 grain_list=[]):
         super(_hamiltonian, self).__init__()
         """
         Parameters
@@ -156,6 +158,10 @@ class _hamiltonian(_decorators_mixin):
             sites. The upper example should serve as a general
             template which should allow for simple extension to
             the case of n-spin interaction and varying couplings.
+            See also the description of grain_list parameter in case
+            the Hamiltonian contains random inclusions. In that case,
+            the operator string has to be 'RR' and the site-coupling
+            list should be of length 2.
 
         dynamic_list: list. optional
             A nested list of the operator description strings. The
@@ -177,6 +183,17 @@ class _hamiltonian(_decorators_mixin):
             Number of up spins, relevant for the hamiltonians where the
             total spin z projection is a conserved quantity. Defaults to
             None.
+
+        grain_list: list, optional
+            In case the Hamiltonian contains random inclusions (or some
+            other rather structureless blocks that can be conveniently
+            described by means of a tensor product of single-body spaces),
+            the grain_list contains the random matrices defined on the
+            "ergodic subsets" of the whole Hamiltonian chain. The order
+            and the dimensions of the matrices should be compatible with
+            the entries in the static list having the 'RR' operator string.
+            Note: this will only work with Nu=None, e.g. for Hamiltonians
+            with no number conservation.
         """
         # make sure this class cannot be instantiated
         # on its own:
@@ -189,6 +206,7 @@ class _hamiltonian(_decorators_mixin):
         self.static_list = static_list
         self.dynamic_list = dynamic_list
         self.Nu = Nu
+        self.grain_list = grain_list
         # self.build_mat()
 
     @property
@@ -247,7 +265,7 @@ class _hamiltonian(_decorators_mixin):
     def static_list(self, static_list):
         """
         Perform checking on the shapes and values
-        of the static_ham input nested list.
+        of the static_list input nested list.
 
         INPUT:
 
@@ -261,6 +279,52 @@ class _hamiltonian(_decorators_mixin):
 
         self._static_list = static_list
         self._static_changed = True
+
+    @property
+    def grain_list(self):
+
+        return self._grain_list
+
+    @grain_list.setter
+    def grain_list(self, grain_list):
+        """
+        Perform checking on the shapes
+        and values of the grain_list input
+        nested list.
+        """
+        # if Nu is not None, grain list must
+        # be empty
+
+        grain_present = grain_list != []
+
+        if ((self.Nu is not None) and grain_present):
+            raise ValueError(("If Nu is not None "
+                              "grain_list must be empty!"))
+
+        # check if random grain terms are in the static list
+        grain_terms = [term[1] for
+                       term in self.static_list if term[0] == 'RR']
+
+        grain_specified = grain_terms != []
+
+        conditions = []
+        if (grain_present and grain_specified):
+            grain_term = grain_terms[0]
+
+            for i, grain in enumerate(grain_term):
+
+                grain_size = np.diff(grain[1:])[0] + 1
+
+                conditions.append(grain_list[i].shape == (2**grain_size,
+                                                          2**grain_size))
+        if all(conditions):
+            print('Setting the grain list.')
+            self._grain_list = grain_list
+        else:
+            err = ('There was a shape mismatch when '
+                   'setting the grain list. See how the '
+                   f'shapes matched: {conditions}')
+            raise ValueError(err)
 
     def build_mat(self):
 
@@ -353,7 +417,89 @@ class _hamiltonian(_decorators_mixin):
     #     return self._dynamic
 
     # @dynamic.setter
-    # def dynamic(self, dynamic_ham):
+    # def dynamic(self, dynamic_ham
+
+    def _build_rnd_grain(self, op_string, coupling):
+        """
+        Constructs the Hamiltonian in the
+        special case in which Hamiltonian (or,
+        more likely, some part of it) is modeled
+        as a random matrix. For now, we only allow
+        for homogenous blocks useful in simulations
+        of "ergodic grains".
+
+        Parameters:
+
+        op_string: string
+                A string describing which single-body
+                operators comprise the many-body
+                hamiltonian. For the random grain
+                construction, we only allow for 'RR'
+                operator string, standing for the
+                random matrix. Two 'R's need to be
+                given because the operator string
+                length should match the length of
+                the site coupling list. Hence,
+                only 
+                    op_string = 'RR'
+                is allowed in this routine by design.
+
+        coupling: list
+                A list describing the strength of the
+                coupling constant (actually, the magnitude
+                of the typical random matrix elements)
+                as well as the range of sites on which
+                the random grain is defined. So, for
+                a random grain defined between sites
+                1 and 3 with the multiplicative
+                prefactor of \beta, one would specify:
+
+                coupling = [\beta, 1, 3]
+
+        """
+
+        #op_string = list(op_string)
+
+        # sanity checks
+        if op_string != 'RR':
+            print(('If you wish to specify '
+                   'the random grain hamiltonian '
+                   'specify the operator string as RR '
+                   'Now you '
+                   f'have op_string={op_string}. Exiting.'))
+            sys.exit()
+
+        # first entry of the coupling array is the
+        # exchange constant, the second one is the
+        # site coupling list. In this case, length
+        # of the coupling list should be equal to 2,
+        # their values specifying the grain boundaries.
+        exchange, sites = coupling[0], coupling[1:]
+
+        # this will define the size of the
+        # grain matrix
+
+        dims = np.diff(sites) + 1
+
+        rnd_matrix = rnd_mat(np.int(2**dims[0]))
+        # this takes care of the identity
+        # part preceeding the grain
+        dims = np.insert(dims, 0, sites[0])
+        # this takes care of the identity part
+        # following the grain
+        dims = np.append(dims, self.L - 1 - sites[-1])
+        # construct the matrices
+        id_before = sites[0]
+        id_after = self.L - 1 - sites[-1]
+        matrices = [ssp.eye(2**id_before), rnd_matrix, ssp.eye(2**id_after)]
+
+        temp = ssp.eye(1)
+
+        for mat in matrices:
+
+            temp = ssp.kron(mat, temp)
+
+        return temp * exchange
 
 
 class _hamiltonian_numba(_hamiltonian):
@@ -375,7 +521,7 @@ class _hamiltonian_numba(_hamiltonian):
     """
 
     def __init__(self, L, static_list, dynamic_list, build_mod, t=0, Nu=None,
-                 parallel=False, mpirank=0, mpisize=0):
+                 grain_list=[], parallel=False, mpirank=0, mpisize=0):
         """
         Parameters:
         -----------
@@ -453,7 +599,7 @@ class _hamiltonian_numba(_hamiltonian):
         self._ops = build_mod.operators
 
         super(_hamiltonian_numba, self).__init__(
-            L, static_list, dynamic_list, t, Nu)
+            L, static_list, dynamic_list, t, Nu, grain_list)
 
         # mpi params, if needed
         self._mpisize = mpisize
@@ -622,25 +768,40 @@ class _hamiltonian_numba(_hamiltonian):
                 coups = np.complex128(coupsites[:, 0])
 
                 sites = np.uint32(coupsites[:, 1:])
-                rows, cols, vals = self._ham_ops(
-                    self.states[self.start_row:self.end_row],
-                    self.state_indices, coups, sites, ops)
 
-                mat = csr_matrix((vals, (rows, cols)),
-                                 shape=(self.end_row - self.start_row,
-                                        self.nstates),
-                                 dtype=np.complex128)
+                if static_key != 'RR':
+                    rows, cols, vals = self._ham_ops(
+                        self.states[self.start_row:self.end_row],
+                        self.state_indices, coups, sites, ops)
 
-                # NOTE: this step assigns all the terms corresponding
-                # to the same operator descriptor string to the same
-                # key in the ham_static dictionary. In case one for
-                # instance has different terms corresponding to the
-                # '+-' operator descriptor, those would all be writen
-                # to the same csr matrix. Multiple occurences of the
-                # same operator descriptor can happen, for example when
-                # one wishes to describe nearest and next-nearest
-                # neighbour couplings in the same hamiltonian.
-                ham_static[static_key] += mat
+                    mat = csr_matrix((vals, (rows, cols)),
+                                     shape=(self.end_row - self.start_row,
+                                            self.nstates),
+                                     dtype=np.complex128)
+                    # NOTE: this step assigns all the terms corresponding
+                    # to the same operator descriptor string to the same
+                    # key in the ham_static dictionary. In case one for
+                    # instance has different terms corresponding to the
+                    # '+-' operator descriptor, those would all be writen
+                    # to the same csr matrix. Multiple occurences of the
+                    # same operator descriptor can happen, for example when
+                    # one wishes to describe nearest and next-nearest
+                    # neighbour couplings in the same hamiltonian.
+                    ham_static[static_key] += mat
+                else:
+
+                    for coupling in term[1]:
+
+                        mat = self._build_rnd_grain(
+                            static_key, coupling)
+                        # NOTE: mpi structure will not work here
+                        # mat = csr_matrix((vals, (rows, cols)),
+                        #                  shape=(self.end_row - self.start_row,
+                        #                         self.nstates),
+                        #                  dtype=np.complex128)
+                        mat = np.conj(mat.T)
+                        # print(mat.dtype)
+                        ham_static[static_key] += mat
 
             self._static_changed = False
             self._mat_static = ham_static

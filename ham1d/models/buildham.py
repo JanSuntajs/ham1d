@@ -30,3 +30,12 @@ def buildham(L, nup, static_list, build_mod):
 
     return ham
 
+
+def rnd_mat(size, seed=0):
+
+    rng = np.random.default_rng(seed)
+    rmat = rng.normal(loc=0.,
+                      scale=1., size=(size, size))
+
+    # np.ones((size, size))  #
+    return 0.5 * (rmat + rmat.T)

@@ -13,3 +13,5 @@ class hamiltonian(_hamiltonian_numba):
         super(hamiltonian, self).__init__(
             L, static_list, dynamic_list, _construct_ops, t, Nu, parallel,
             mpirank, mpisize)
+
+

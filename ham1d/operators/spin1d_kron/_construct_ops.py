@@ -1,4 +1,58 @@
+"""
+This module contains tools for the
+creation of spin operators acting
+on the chosen Hilbert space. The
+operators are written in the site-occupational
+basis where the last (i.e. leftmost)
+bit is the most significant
+(changes the slowest) and hence determines
+the block structure of the operator matrices.
+
+NOTE: THE LOCAL BASIS HERE IS:
+I 1 >, | 0 >
+In this basis, the Sz operator
+has the following structure:
+| 1  0 |
+| 0 -1 |
+
+We wish to achieve consistency of matrix
+representations for different Hamiltonian
+implementations (eg. between the Numba
+Hamiltonian and the Kronecker product
+implementation).
+
+Since in the spin1d implementation, the order
+of construction is such that the last bit is
+the most significant (i. e., it changes the
+slowest) we mimic this behaviour here by adjusting
+the order of multiplications in the tensor
+product -> imagine we have a chain of length L:
+
+  0  -  1  -  2  -  ...  -  i  -  i+1  -  ...  L-1
+
+With the corresponding operators:
+ A_0 -  A_1 - A_2 - ... - A_i -  A_i+1 - ... A_L-1
+
+We would build the operator tensor product like this:
+
+  A_L x A_{L-1} x ... x A_i x A_i-1 x A_i-2 x ... x A_1 x A_0
+
+
+Also note: since the spin1d operator is constructed row-wise
+(using the csr matrix format for the sparse matrix) where we
+map each row into differen columns, a conjugate transpose of
+the Kronecker product Hamiltonian has to taken in order
+to ensure compatibility with the other variant. Since we are
+typically dealing with Hamiltonian (e.g., Hermitian objects)
+this shouldn't pose too much of a problem in most cases, however,
+it has to be kept in mind in applications where one would want
+to combine both implementations.
+
+"""
+
+
 import numpy as np
+import sys
 from scipy import sparse as ssp
 
 from . import _spinops
@@ -53,6 +107,8 @@ class operators_mixin(object):
 
                 Here, x denotes the tensor product of the Hilbert spaces.
 
+                NOTE: 
+
 
         Returns
         -------
@@ -101,11 +157,12 @@ class operators_mixin(object):
         for i, eye in enumerate(eyes[:-1]):
             # an iterative step term -> consisting
             # of an identity matrix and an operator
-            temp_ = ssp.kron(eye, _ops[op_string[sites_sorted[i]]])
+            temp_ = ssp.kron(_ops[op_string[sites_sorted[i]]], eye)
 
-            temp = ssp.kron(temp, temp_)
+            temp = ssp.kron(temp_, temp)
 
         # take care of the final boundary case
-        temp = ssp.kron(temp, eyes[-1])
+        temp = ssp.kron(eyes[-1], temp)
 
         return temp * exchange
+
