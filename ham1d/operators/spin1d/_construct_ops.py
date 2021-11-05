@@ -59,7 +59,7 @@ def _ham_ops(states, state_indices, couplings, sites, sel_opt):
     for usage in the operators.buildham.buildham(...) function.
     The output of this function are the matrix elements
     corresponding to a single hamiltonian term in the decomposition
-    H = \sum_i h_i
+    H = sum_i h_i
     where H is the entire hamiltonian and h_i are the aforementioned
     subterms.
 
@@ -113,10 +113,10 @@ def _ham_ops(states, state_indices, couplings, sites, sel_opt):
         hamiltonian terms for an anisotropic XXZ
         chain with added potential disorder:
 
-        H_xxz = J * (\sum_i (S_i^+S_{i+1}^- +
+        H_xxz = J * (r\sum_i (S_i^+S_{i+1}^- +
                  + S_i^- S_{i+1}^+) +
                  + delta * S_i^z S_{i+1}^z) +
-                 + \sum_i h_i S_i^z
+                 + r\sum_i h_i S_i^z
 
         We set L=4 with PBC and with the
         total spin projection Sz=0 (nup=2) and
@@ -217,6 +217,91 @@ def _ham_ops(states, state_indices, couplings, sites, sel_opt):
     cols = np.array(cols, dtype=np.uint64)
     vals = np.array(vals, dtype=np.complex128)
     return rows, cols, vals
+
+
+_sign_eval = (
+    "complex128[:, :](uint64[:], uint64[:], complex128[::1, :], uint32, uint32)")
+
+
+@nb.njit(_sign_eval, fastmath=True, nogil=True, cache=True, parallel=True)
+def _eval_op(basis, state_indices, states, site, sel_opt):
+    """
+    Evaluate the selected operators for a selected set of
+    states written in the occupational basis.
+
+    Parameters:
+
+    basis: ndarray, dytpe uint64
+    1D ndarray of ints specifying the basis states
+
+
+
+    """
+    #states = states.T
+    dim_ = states.shape[1]
+    matelts = np.zeros(
+        shape=(dim_, dim_), dtype=np.complex128,)
+
+    opvals = np.zeros(basis.shape[0], dtype=np.complex128)
+    indices = np.zeros_like(opvals, dtype=np.uint32)
+
+    for j in nb.prange(basis.shape[0]):
+
+        if sel_opt == 0:
+
+            factor_, newstate = so.sp(basis[j], site)
+
+        elif sel_opt == 1:
+
+            factor_, newstate = so.sm(basis[j], site)
+
+        elif sel_opt == 2:
+
+            factor_, newstate = so.id2(basis[j], site)
+
+        elif sel_opt == 3:
+
+            factor_, newstate = so.sx(basis[j], site)
+
+        elif sel_opt == 4:
+
+            factor_, newstate = so.sy(basis[j], site)
+
+        elif sel_opt == 5:
+
+            factor_, newstate = so.sz(basis[j], site)
+
+        opvals[state_indices[newstate]] += 1. * factor_
+        indices[state_indices[newstate]] = j
+
+    for i in nb.prange(dim_):
+
+        opstate = opvals * states[indices, i]
+
+        # offdiagonals
+        if sel_opt > 2:
+            for k in range(i):
+
+                prod_ = np.vdot(states[:, k], opstate)
+                matelts[k][i] += prod_
+                matelts[i][k] += np.conj(prod_)
+
+            matelts[i][i] = np.vdot(states[:, i], opstate)
+
+        else:
+            for k in range(dim_):  # range(i):
+
+                prod_ = np.vdot(states[:, k], opstate)
+
+                # print(prod_)
+                # if k != i:
+                matelts[k][i] += prod_
+                #matelts[i][k] += np.conj(prod_)
+
+        # diagonals
+        #matelts[i][i] = np.vdot(states[:, i], opstate)
+
+    return matelts
 
 
 # since numba does not support passing character

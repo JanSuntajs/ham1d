@@ -30,8 +30,6 @@ bitflip(state, bit) - a routine for flipping a bit in a state
 
 getbit(state, bit) - get the value of a bit in a state at a
                      position 'bit'.
-
-
 """
 
 import numpy as np
@@ -152,16 +150,18 @@ def select_states_nni(L):
         subspace of the Hilbert space.
     """
 
-    states = []
-    state_indices = []
+    #states = []
+    #state_indices = []
+    states = np.arange(0, L, 1, dtype=np.uint64)
+    state_indices = np.arange(0, L, 1, dtype=np.uint64)
     # state_indices = np.arange(0, L, 1, dtype=np.uint64)
 
     for i in range(L):
         states.append(i)
         state_indices.append(i)
 
-    return (np.array(states, dtype=np.uint64),
-            np.array(state_indices, dtype=np.uint64))
+    return (states,
+            state_indices)
 
 
 #  ----------------------------------------------------------

@@ -3,13 +3,13 @@ Implementation of spin 1/2 operators compiled using
 numba's (eager) just-in-time compilation to speed
 up subsequent calculations and hamiltonian creations
 procedure.
-
 """
 
-import numba as nb
+import numba as nb  
 import numpy as np
 
 from ...models import bitmanip as bmp
+
 # -----------------------------------------------------------------------------
 
 
@@ -34,7 +34,7 @@ def sy(state, bit):
     """
 
     factor = np.complex128(1j)
-    factor = 0.5j * (-1)**(1-bmp.getbit(state, bit))
+    factor = 0.5j * (-1)**(1 - bmp.getbit(state, bit))
 
     return factor, bmp.bitflip(state, bit)
 
@@ -92,8 +92,10 @@ def sm(state, bit):
         return bitval, bmp.bitflip(state, bit)
 
     else:
-
+    
         return bitval, state
+
+        
 
 
 @nb.njit("complex128[:](uint64[:], complex128[:, :], uint32)")

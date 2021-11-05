@@ -419,7 +419,7 @@ class _hamiltonian(_decorators_mixin):
     # @dynamic.setter
     # def dynamic(self, dynamic_ham
 
-    def _build_rnd_grain(self, op_string, coupling):
+    def _build_rnd_grain(self, op_string, coupling, grain_index):
         """
         Constructs the Hamiltonian in the
         special case in which Hamiltonian (or,
@@ -456,6 +456,11 @@ class _hamiltonian(_decorators_mixin):
 
                 coupling = [\beta, 1, 3]
 
+        grain_index: int
+                Integer specifying which term from the
+                self.grain_list object corresponds to the
+                grain term being constructed.
+
         """
 
         #op_string = list(op_string)
@@ -481,7 +486,8 @@ class _hamiltonian(_decorators_mixin):
 
         dims = np.diff(sites) + 1
 
-        rnd_matrix = rnd_mat(np.int(2**dims[0]))
+        # rnd_mat(np.int(2**dims[0]))
+        rnd_matrix = self.grain_list[grain_index]
         # this takes care of the identity
         # part preceeding the grain
         dims = np.insert(dims, 0, sites[0])
@@ -790,10 +796,10 @@ class _hamiltonian_numba(_hamiltonian):
                     ham_static[static_key] += mat
                 else:
 
-                    for coupling in term[1]:
+                    for i, coupling in enumerate(term[1]):
 
                         mat = self._build_rnd_grain(
-                            static_key, coupling)
+                            static_key, coupling, i)
                         # NOTE: mpi structure will not work here
                         # mat = csr_matrix((vals, (rows, cols)),
                         #                  shape=(self.end_row - self.start_row,
