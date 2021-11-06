@@ -35,6 +35,8 @@ getbit(state, bit) - get the value of a bit in a state at a
 import numpy as np
 import numba as nb
 
+from numba.typed import List
+
 # ---------------------------------------------------------
 # STATE SELECTION HELPER ROUTINES
 
@@ -121,7 +123,7 @@ def select_states(L, nup):
 
             idx += 1
 
-    return np.array(states, dtype=np.uint64), state_indices
+    return (np.array(states, dtype=np.uint64), state_indices)
 
 
 @nb.njit('Tuple((uint64[:], uint64[:]))(uint32)')
@@ -150,18 +152,18 @@ def select_states_nni(L):
         subspace of the Hilbert space.
     """
 
-    #states = []
-    #state_indices = []
-    states = np.arange(0, L, 1, dtype=np.uint64)
-    state_indices = np.arange(0, L, 1, dtype=np.uint64)
+    states = []
+    state_indices = []
+    #states = np.arange(0, L, 1, dtype=np.uint64)
+    #state_indices = np.arange(0, L, 1, dtype=np.uint64)
     # state_indices = np.arange(0, L, 1, dtype=np.uint64)
 
     for i in range(L):
         states.append(i)
         state_indices.append(i)
 
-    return (states,
-            state_indices)
+    return (np.array(states, dtype=np.uint64),
+            np.array(state_indices, dtype=np.uint64))
 
 
 #  ----------------------------------------------------------
