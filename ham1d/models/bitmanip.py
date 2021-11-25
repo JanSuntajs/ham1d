@@ -112,7 +112,9 @@ def select_states(L, nup):
 
     """
     states = []
-    state_indices = np.zeros(1 << L, dtype=np.uint64)
+    state_indices = np.array([1 << L for i in range(1 << L)],
+                             dtype=np.uint64)
+    # state_indices *= 1 << L
     idx = 0
     for i in range(1 << L):
 

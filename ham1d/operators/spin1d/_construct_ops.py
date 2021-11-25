@@ -44,6 +44,8 @@ to combine both implementations.
 import numpy as np
 import numba as nb
 
+from scipy.sparse import csr_matrix
+
 from . import _spinops as so
 
 _signature = (
@@ -219,89 +221,170 @@ def _ham_ops(states, state_indices, couplings, sites, sel_opt):
     return rows, cols, vals
 
 
+# _sign_eval = (
+#     "Tuple((uint32[:], complex128[:]))(uint64[:], uint64[:], uint32, uint32)")
+
+
+# @nb.njit(_sign_eval, fastmath=True, nogil=True, cache=True, parallel=False)
+# def _eval_single_op_helper(basis, state_indices, site, sel_opt):
+#     """
+#     Evaluate the selected operators for a selected set of
+#     states written in the occupational basis. Note: this
+#     routine is only written for single-body operators acting
+#     on a single site. For other cases, we resort to the _ham_ops
+#     function.
+
+#     Implementational notes:
+
+#     The states array, on which we operate, is supposed
+#     to bo be given in the site-occupational basis
+#     where i-th column states[:, i] is the selected
+#     state (if, for instance, the states array is an
+#     array of eigenstates, that would be the i-th
+#     eigenvector). The operators we write are given in
+#     the site-occupational basis in which they assume
+#     a sparse and elegant form. Hence we need to ensure
+#     proper order of operations. The proper order of
+#     operations when calculating the matrix elements
+#     array would be
+
+#     matelts = states @ matelts @ np.conj(states.T)
+
+#     Note: we need the inverse of the states array
+#     (conjugate transpose for unitaries) to calculate
+#     how a basis site in the site occupational basis
+#     is constructed from the eigenstates.
+
+#     Parameters:
+
+#     basis: ndarray, dytpe=np.uint64
+#     1D ndarray of ints specifying the basis states
+
+#     state_indices: np.array, dtype=np.uint64
+#         A helper array used for finding the index
+#         of a state which was obtained after hamiltonian
+#         action on some selected initial state. Both
+#         states and state_indices arrays are usually
+#         provided as the output of the
+#         bitmanip.select_states(...) function.
+
+#     site: np.uint32
+#         An integer indicating on which site the
+#         operator specified in the sel_opt (see below)
+#         should act.
+#     sel_opt: np.uint32
+#         An integer specifying which operator acts on
+#         the selected site. Allowed entries are:
+
+#             0: S+ operator
+#             1: S- operator
+#             2: Identity operator
+#             3: Sx operator
+#             4: Sy operator
+#             5: Sz operator
+
+#     """
+
+#     opvals = np.zeros(basis.shape[0], dtype=np.complex128)
+#     indices = np.zeros_like(opvals, dtype=np.uint32)
+
+#     for j in range(basis.shape[0]):
+
+#         if sel_opt == 0:
+
+#             factor_, newstate = so.sp(basis[j], site)
+
+#         elif sel_opt == 1:
+
+#             factor_, newstate = so.sm(basis[j], site)
+
+#         elif sel_opt == 2:
+
+#             factor_, newstate = so.id2(basis[j], site)
+
+#         elif sel_opt == 3:
+
+#             factor_, newstate = so.sx(basis[j], site)
+
+#         elif sel_opt == 4:
+
+#             factor_, newstate = so.sy(basis[j], site)
+
+#         elif sel_opt == 5:
+
+#             factor_, newstate = so.sz(basis[j], site)
+
+#         if factor_:
+#             opvals[state_indices[newstate]] = factor_
+#             indices[state_indices[newstate]] = j
+
+#     return indices, opvals
+
 _sign_eval = (
-    "complex128[:, :](uint64[:], uint64[:], complex128[::1, :], uint32, uint32)")
+    "Tuple((uint64[:], uint64[:], complex128[:]))(uint64[:], uint64[:], complex128[:, :], complex128[:], uint32[:,:], uint32[:])")
+
+@nb.njit(_sign_eval, fastmath=True, nogil=True, cache=True, parallel=False)
+def _eval_op(basis, state_indices, states, couplings, sites, sel_opt):
+
+    rows, cols, vals = _ham_ops(
+        basis, state_indices, couplings, sites, sel_opt)
+    # operator = csr_matrix((vals, (rows, cols)),
+    #                       shape=(basis.shape[0], basis.shape[0]), dtype=np.complex128)
+    # indices, opvals = _eval_op_helper(basis, state_indices, site, sel_opt)
+    # @ operator can treat the sparse structure of the operator
+    # properly
+    # matelts = np.matmul(np.conj(states.T), operator @ states)
+    # newstates = states[indices, :] * opvals[:, np.newaxis]
+    # matelts = np.matmul((np.conj(states.T)), newstates)
+
+    return rows, cols, vals
 
 
-@nb.njit(_sign_eval, fastmath=True, nogil=True, cache=True, parallel=True)
-def _eval_op(basis, state_indices, states, site, sel_opt):
-    """
-    Evaluate the selected operators for a selected set of
-    states written in the occupational basis.
+# @nb.njit("complex128[:](complex128[::1,:], complex128[::1, :], uint64[:], uint64[:])", fastmath=True, nogil=True, cache=True, parallel=True)
+# def _eval_op_spectral_nb(states, newstates, rows, cols):
+#     """
 
-    Parameters:
+#     """
+#     matelts = []
+#     # states = states
+#     # newstates = newstates.T
+#     print('entering the main loop')
+#     for i in nb.prange(rows.shape[0]):
 
-    basis: ndarray, dytpe uint64
-    1D ndarray of ints specifying the basis states
+#         row = rows[i]
+#         col = cols[i]
+#         matelt = np.dot(states[:, row], newstates[:, col])
+#         matelts.append(matelt)
+#     print('exiting the main loop')
+#     return np.array(matelts, dtype=np.complex128)
 
 
+# def _eval_op_spectral(basis, state_indices, energies, states, site,
+#                       sel_opt, etar=0.5, eps=0.05, split_num=10):
 
-    """
-    #states = states.T
-    dim_ = states.shape[1]
-    matelts = np.zeros(
-        shape=(dim_, dim_), dtype=np.complex128,)
+#     matelts = []
+#     #indices, opvals = _eval_op_helper(basis, state_indices, site, sel_opt)
+#     indices, opvals = _eval_op_helper(basis, state_indices, site, sel_opt)
+#     print('making newstates')
+#     newstates = states[indices, :] * opvals[:, np.newaxis]
+#     states = np.conj(states)
+#     print('made newstates')
+#     # newstates = states[indices, :] * opvals[:, np.newaxis]
+#     # pick the engy window
+#     emin, emax = (energies[0], energies[-1])
+#     bandwidth = emax - emin
 
-    opvals = np.zeros(basis.shape[0], dtype=np.complex128)
-    indices = np.zeros_like(opvals, dtype=np.uint32)
+#     etar = emin + etar * bandwidth
+#     eps *= bandwidth
 
-    for j in nb.prange(basis.shape[0]):
+#     aves = 0.5 * (energies[:, np.newaxis] + energies)
 
-        if sel_opt == 0:
+#     rows, cols = np.nonzero(((aves < etar + eps) & (aves > etar - eps)))
+#     print('main prog running')
+#     matelts = _eval_op_spectral_nb(np.array(states, order='F'), np.array(newstates, order='F'),
+#                                    np.uint64(rows), np.uint64(cols))
 
-            factor_, newstate = so.sp(basis[j], site)
-
-        elif sel_opt == 1:
-
-            factor_, newstate = so.sm(basis[j], site)
-
-        elif sel_opt == 2:
-
-            factor_, newstate = so.id2(basis[j], site)
-
-        elif sel_opt == 3:
-
-            factor_, newstate = so.sx(basis[j], site)
-
-        elif sel_opt == 4:
-
-            factor_, newstate = so.sy(basis[j], site)
-
-        elif sel_opt == 5:
-
-            factor_, newstate = so.sz(basis[j], site)
-
-        opvals[state_indices[newstate]] += 1. * factor_
-        indices[state_indices[newstate]] = j
-
-    for i in nb.prange(dim_):
-
-        opstate = opvals * states[indices, i]
-
-        # offdiagonals
-        if sel_opt > 2:
-            for k in range(i):
-
-                prod_ = np.vdot(states[:, k], opstate)
-                matelts[k][i] += prod_
-                matelts[i][k] += np.conj(prod_)
-
-            matelts[i][i] = np.vdot(states[:, i], opstate)
-
-        else:
-            for k in range(dim_):  # range(i):
-
-                prod_ = np.vdot(states[:, k], opstate)
-
-                # print(prod_)
-                # if k != i:
-                matelts[k][i] += prod_
-                #matelts[i][k] += np.conj(prod_)
-
-        # diagonals
-        #matelts[i][i] = np.vdot(states[:, i], opstate)
-
-    return matelts
+#     return matelts
 
 
 # since numba does not support passing character
