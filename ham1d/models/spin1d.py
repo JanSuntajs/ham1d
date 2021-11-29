@@ -24,7 +24,7 @@ class hamiltonian(_hamiltonian_numba):
 
         return _eval_diag_Siz(self.states, states, uint32(site))
 
-    def eval_matelts(self, states, op_descriptor):
+    def eval_matelts(self, states, op_descriptor, dtype=np.complex128):
 
         ops = list(op_descriptor[0])
 
@@ -37,11 +37,12 @@ class hamiltonian(_hamiltonian_numba):
         sites = np.uint32(coupsites[:, 1:])
         #opvals = np.zeros(states.shape[1], dtype=np.complex128)
         rows, cols, vals = _construct_ops._eval_op(self.states, self.state_indices,
-                                                   states, couplings, sites, ops)
+                                                    couplings, sites, ops)
         operator = csr_matrix((vals, (rows, cols)),
-                              shape=(self.nstates, self.nstates), dtype=np.complex128)
-
-        matelts = np.matmul(np.conj(states.T), operator @ states)                
+                              shape=(self.nstates, self.nstates), dtype=dtype)
+        
+        matelts = np.matmul(np.conj(states.T), operator @ states)
+     
         return matelts
 
     # def eval_matelts_spectral(self, energies, states, site, operator, etar, eps, split_num ):

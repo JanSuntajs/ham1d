@@ -41,6 +41,7 @@ from scipy import sparse as ssp
 from . import bitmanip as bmp
 from .buildham import rnd_mat
 
+
 class _decorators_mixin(object):
 
     """
@@ -404,12 +405,14 @@ class _hamiltonian(_decorators_mixin):
         eigenvalues and the eigenvectors
         of the Hamiltonian array.
         """
+
+
         if complex:
 
             return sla.eigh(self.mat.todense(), *args, **kwargs)
         else:
 
-            return sla.eigh(np.real(self.mat).todense(), *args, **kwargs)
+            return sla.eigh(np.real(self.mat.todense()), *args, **kwargs)
 
     # @property
     # def dynamic(self):
@@ -527,7 +530,7 @@ class _hamiltonian_numba(_hamiltonian):
     """
 
     def __init__(self, L, static_list, dynamic_list, build_mod, t=0, Nu=None,
-                 grain_list=[], parallel=False, mpirank=0, mpisize=0):
+                 grain_list=[], parallel=False, mpirank=0, mpisize=0, dtype=np.complex128):
         """
         Parameters:
         -----------
@@ -611,6 +614,8 @@ class _hamiltonian_numba(_hamiltonian):
         self._mpisize = mpisize
         self._mpirank = mpirank
         self._parallel = parallel
+
+        self._dtype = dtype
 
         self._make_basis()
         self._mpi_prepare_params()
@@ -760,7 +765,7 @@ class _hamiltonian_numba(_hamiltonian):
                 static_key[0]:
                 csr_matrix((self.end_row - self.start_row,
                             self.nstates),
-                           dtype=np.complex128)
+                           dtype=self._dtype)
                 for static_key in self.static_list}
 
             for term in self.static_list:
@@ -783,7 +788,7 @@ class _hamiltonian_numba(_hamiltonian):
                     mat = csr_matrix((vals, (rows, cols)),
                                      shape=(self.end_row - self.start_row,
                                             self.nstates),
-                                     dtype=np.complex128)
+                                     dtype=self._dtype)
                     # NOTE: this step assigns all the terms corresponding
                     # to the same operator descriptor string to the same
                     # key in the ham_static dictionary. In case one for

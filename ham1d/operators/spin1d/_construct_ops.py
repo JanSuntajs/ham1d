@@ -48,6 +48,7 @@ from scipy.sparse import csr_matrix
 
 from . import _spinops as so
 
+# allow for complex and real matrices
 _signature = (
     'Tuple((uint64[:], uint64[:], complex128[:]))(uint64[:], uint64[:], complex128[:], uint32[:,:], uint32[:])')
 
@@ -321,10 +322,12 @@ def _ham_ops(states, state_indices, couplings, sites, sel_opt):
 #     return indices, opvals
 
 _sign_eval = (
-    "Tuple((uint64[:], uint64[:], complex128[:]))(uint64[:], uint64[:], complex128[:, :], complex128[:], uint32[:,:], uint32[:])")
+    "Tuple((uint64[:], uint64[:], complex128[:]))(uint64[:], uint64[:], complex128[:], uint32[:,:], uint32[:])"
+)
+
 
 @nb.njit(_sign_eval, fastmath=True, nogil=True, cache=True, parallel=False)
-def _eval_op(basis, state_indices, states, couplings, sites, sel_opt):
+def _eval_op(basis, state_indices, couplings, sites, sel_opt):
 
     rows, cols, vals = _ham_ops(
         basis, state_indices, couplings, sites, sel_opt)
