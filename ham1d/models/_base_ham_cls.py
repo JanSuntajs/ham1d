@@ -34,6 +34,7 @@ class _hamiltonian_numba(_hamiltonian)
 import numpy as np
 import functools
 import numba as nb
+import sys
 from scipy import linalg as sla
 from scipy.sparse import csr_matrix
 from scipy import sparse as ssp
