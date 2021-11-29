@@ -14,11 +14,11 @@ class hamiltonian(_hamiltonian_numba):
 
     def __init__(self, L, static_list, dynamic_list=[], grain_list=[],
                  t=0, Nu=None,
-                 parallel=False, mpirank=0, mpisize=0):
+                 parallel=False, mpirank=0, mpisize=0, dtype=np.complex128):
         super(hamiltonian, self).__init__(
             L, static_list, dynamic_list, _construct_ops, t, Nu, grain_list,
             parallel,
-            mpirank, mpisize)
+            mpirank, mpisize, dtype)
 
     def eval_diag_Siz(self, states, site):
 
