@@ -19,7 +19,7 @@ from numpy import random
 # OPERATOR DEFINITIONS
 
 sx = 0.5 * np.array([[0, 1], [1, 0]], dtype=np.int8)
-sy = 0.5 * np.array([[0, -1j], [1j, 0]])
+sy = 0.5 * np.array([[0, 1j], [-1j, 0]])
 sz = 0.5 * np.array([[-1, 0], [0, 1]], dtype=np.int8)
 
 # spin up operator

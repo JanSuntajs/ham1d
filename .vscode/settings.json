@@ -1,3 +1,4 @@
 {
-    "python.pythonPath": "/home/jan/anaconda3/envs/petscenv/bin/python"
+    "python.pythonPath": "/home/jan/anaconda3/envs/petscenv/bin/python",
+    "python.formatting.provider": "autopep8"
 }

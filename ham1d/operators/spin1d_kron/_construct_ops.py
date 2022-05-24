@@ -66,7 +66,7 @@ class operators_mixin(object):
     A class with methods for operator construction.
     """
 
-    def make_op(self, op_string, coupling):
+    def make_op(self, op_string, coupling, spin=1/2):
         """
         A function for building an operator
         acting over a many-body Hilbert space
@@ -109,6 +109,12 @@ class operators_mixin(object):
 
                 NOTE: 
 
+        spin: {int, float}, optional
+                Defaults to 1/2 and determines the dimension of the
+                local Hilbert space according to the formula
+                ldim = int(2 * spin + 1). The option to specify spins
+                different than 1/2 is for reusage of the routine in
+                applications for higher spins.
 
         Returns
         -------
@@ -120,6 +126,8 @@ class operators_mixin(object):
 
         """
 
+        # dimension of the local Hilbert space:
+        ldim = int(2 * spin + 1)
         # converts the operator string to a list of
         # operator string values
         op_string = list(op_string)
@@ -147,7 +155,7 @@ class operators_mixin(object):
         dims = np.insert(dims, 0, sites[0])
         dims = np.append(dims, self.L - 1 - sites[-1])
         # create the intermediate identity matrices
-        eyes = [ssp.eye(2 ** dim) for dim in dims]
+        eyes = [ssp.eye(ldim ** dim) for dim in dims]
         # NOTE: the above construction ensures that the
         # cases where nontrivial operators are not present
         # at the edge sites are also properly considered
